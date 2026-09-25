@@ -15,6 +15,8 @@ export const keys = {
   env: (scope, id) => ['env', scope, id],
   runs: (filters = {}) => ['runs', 'list', filters],
   run: (id) => ['runs', 'detail', id],
+  // Under 'runs' so run events refresh it.
+  stats: ['runs', 'stats'],
   // Not under 'runs': a saved log never changes, so run events must not refetch it.
   runLog: (id, position) => ['runLog', id, position],
   tokens: ['tokens'],
@@ -78,6 +80,8 @@ export function useRunPages(filters = {}) {
     getNextPageParam: (lastPage) => (lastPage.length === RUN_PAGE ? lastPage.at(-1).id : undefined),
   })
 }
+
+export const useStats = () => useQuery({ queryKey: keys.stats, queryFn: () => api.get('/stats') })
 
 export const useRun = (id) => useQuery({ queryKey: keys.run(id), queryFn: () => api.get(`/runs/${id}`) })
 

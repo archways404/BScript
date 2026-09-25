@@ -20,6 +20,12 @@ export function createMasker(secrets) {
 // Writes a step's output to its log file line by line, masking secrets. Output is buffered per
 // stream until a newline so a secret split across two chunks is still caught, and decoded per
 // stream so a multi-byte character split across chunks survives.
+// Which lines weren't stdout, kept beside the plain-text log so a finished run still shows
+// stderr and BScript's own notes differently: { stderr: [lineIndex…], info: [lineIndex…] }.
+export function streamsFileFor(logFile) {
+  return `${logFile}.streams.json`
+}
+
 export function createStepLog({ file, secrets = [], onLine = () => {} }) {
   fs.mkdirSync(path.dirname(file), { recursive: true })
   const out = fs.createWriteStream(file)
@@ -28,10 +34,14 @@ export function createStepLog({ file, secrets = [], onLine = () => {} }) {
   const mask = createMasker(secrets)
   const pending = { stdout: '', stderr: '' }
   const decoders = { stdout: new StringDecoder('utf8'), stderr: new StringDecoder('utf8') }
+  const streams = { stderr: [], info: [] }
+  let lineCount = 0
 
   function emit(stream, raw) {
     const line = mask(raw)
     if (!writeError) out.write(`${line}\n`)
+    if (stream !== 'stdout') streams[stream].push(lineCount)
+    lineCount++
     onLine({ stream, line })
   }
 
@@ -63,6 +73,9 @@ export function createStepLog({ file, secrets = [], onLine = () => {} }) {
         pending[stream] = ''
       }
       out.end()
+      if (streams.stderr.length || streams.info.length) {
+        fs.promises.writeFile(streamsFileFor(file), JSON.stringify(streams)).catch(() => {})
+      }
       return closed
     },
   }

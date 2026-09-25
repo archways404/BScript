@@ -1,7 +1,9 @@
 import fs from 'node:fs'
 import { HttpError, notFound } from '../http-error.js'
 import { getPipeline } from '../store/pipelines.js'
+import { streamsFileFor } from '../runner/logs.js'
 import { getRun, getStepLogPath, listRuns } from '../store/runs.js'
+import { runStats } from '../store/stats.js'
 import { idParams } from './schemas.js'
 import { openEventStream } from './sse.js'
 
@@ -78,6 +80,8 @@ export default async function runRoutes(app, { queue }) {
     async (request) => listRuns(db, request.query),
   )
 
+  app.get('/api/stats', async () => runStats(db))
+
   app.get('/api/runs/:id', { schema: { params: idParams } }, async (request) =>
     requireRun(request.params.id, { withSteps: true }),
   )
@@ -112,12 +116,20 @@ export default async function runRoutes(app, { queue }) {
           required: ['id', 'position'],
           properties: { id: idParams.properties.id, position: { type: 'integer', minimum: 0 } },
         },
+        querystring: { type: 'object', properties: { format: { type: 'string', enum: ['text', 'lines'] } } },
       },
     },
     async (request, reply) => {
       const logPath = getStepLogPath(db, request.params.id, request.params.position)
       if (!logPath || !fs.existsSync(logPath)) throw notFound('Log')
-      return reply.type('text/plain; charset=utf-8').send(fs.createReadStream(logPath))
+      if (request.query.format !== 'lines') return reply.type('text/plain; charset=utf-8').send(fs.createReadStream(logPath))
+
+      // [{ stream, line }] for the UI, with stderr/info restored from the sidecar file.
+      const text = (await fs.promises.readFile(logPath, 'utf8')).replace(/\n$/, '')
+      const streams = JSON.parse(await fs.promises.readFile(streamsFileFor(logPath), 'utf8').catch(() => '{}'))
+      const byLine = new Map()
+      for (const stream of ['stderr', 'info']) for (const index of streams[stream] ?? []) byLine.set(index, stream)
+      return text === '' ? [] : text.split('\n').map((line, i) => ({ stream: byLine.get(i) ?? 'stdout', line }))
     },
   )
 

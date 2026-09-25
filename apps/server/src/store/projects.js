@@ -21,12 +21,17 @@ export function listProjects(db) {
     `SELECT r.id, r.status, r.queued_at FROM runs r JOIN pipelines p ON p.id = r.pipeline_id
      WHERE p.project_id = ? ORDER BY r.id DESC LIMIT 1`,
   )
+  const pipelineCount = db.prepare('SELECT COUNT(*) FROM pipelines WHERE project_id = ?').pluck()
   return db
     .prepare('SELECT * FROM projects ORDER BY name COLLATE NOCASE')
     .all()
     .map((row) => {
       const run = lastRun.get(row.id)
-      return { ...toProject(row), lastRun: run ? { id: run.id, status: run.status, queuedAt: iso(run.queued_at) } : null }
+      return {
+        ...toProject(row),
+        pipelineCount: pipelineCount.get(row.id),
+        lastRun: run ? { id: run.id, status: run.status, queuedAt: iso(run.queued_at) } : null,
+      }
     })
 }
 

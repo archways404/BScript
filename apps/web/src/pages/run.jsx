@@ -189,22 +189,20 @@ function LiveLog({ runId, step, lines }) {
       {lines.length >= REPLAY_CAP && (
         <p className="text-muted-foreground mb-2 text-xs">Showing the most recent lines. The raw log has everything.</p>
       )}
-      <LogView lines={lines} empty={step.status === 'running' ? 'Waiting for output…' : 'No output.'} />
+      <LogView
+        lines={lines}
+        empty={step.status === 'running' ? 'Waiting for output…' : 'No output.'}
+        downloadName={`run-${runId}-${step.position + 1}-${step.name}.log`.replace(/[^\w.-]+/g, '_')}
+      />
       {step.status !== 'running' && <RawLogLink runId={runId} position={step.position} />}
     </>
   )
 }
 
-function parseLog(text) {
-  const body = String(text).replace(/\n$/, '')
-  return body === '' ? [] : body.split('\n').map((line) => ({ stream: 'stdout', line }))
-}
-
 function SavedLog({ runId, step }) {
   const log = useQuery({
     queryKey: keys.runLog(runId, step.position),
-    queryFn: () => api.get(`/runs/${runId}/steps/${step.position}/log`),
-    select: parseLog,
+    queryFn: () => api.get(`/runs/${runId}/steps/${step.position}/log?format=lines`),
     staleTime: Infinity,
   })
 
@@ -212,7 +210,7 @@ function SavedLog({ runId, step }) {
   if (log.error) return <p className="text-muted-foreground p-2 text-sm">{log.error.status === 404 ? 'No log was recorded.' : log.error.message}</p>
   return (
     <>
-      <LogView lines={log.data} />
+      <LogView lines={log.data} downloadName={`run-${runId}-${step.position + 1}-${step.name}.log`.replace(/[^\w.-]+/g, '_')} />
       <RawLogLink runId={runId} position={step.position} />
     </>
   )

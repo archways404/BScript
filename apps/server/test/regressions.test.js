@@ -146,3 +146,16 @@ test('queue start clears leftover run credentials from tmp', async (t) => {
   await server.queue.start()
   assert.equal(fs.existsSync(leftover), false)
 })
+
+test('saved logs keep which lines were stderr and BScript notes', async (t) => {
+  const server = await makeServer(t, { scripts: { 'mix.sh': 'echo out; echo err >&2; exit 3' } })
+  const { pipeline } = await makePipeline(server, [{ scriptPath: 'mix.sh' }])
+  const run = await waitForRun(server.db, (await server.api('POST', `/api/pipelines/${pipeline.id}/runs`, {})).body.id)
+  const lines = (await server.api('GET', `/api/runs/${run.id}/steps/0/log?format=lines`)).body
+  assert.deepEqual(lines, [
+    { stream: 'stdout', line: 'out' },
+    { stream: 'stderr', line: 'err' },
+    { stream: 'info', line: 'Step exited with code 3' },
+  ])
+  assert.equal((await server.api('GET', `/api/runs/${run.id}/steps/0/log`)).body, 'out\nerr\nStep exited with code 3\n', 'raw log stays plain text')
+})

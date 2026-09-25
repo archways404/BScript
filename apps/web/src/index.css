@@ -33,6 +33,9 @@
   --input: oklch(0 0 0 / 12%);
   --ring: oklch(0.55 0.15 280);
   --glow-1: oklch(0.8 0.12 290 / 45%);
+  /* Chart series, validated for contrast and colour-vision separation on this surface. */
+  --chart-runs: #6d5fd8;
+  --chart-failed: #d03b3b;
   --glow-2: oklch(0.85 0.1 210 / 40%);
 }
 
@@ -58,6 +61,8 @@
   --input: oklch(1 0 0 / 14%);
   --ring: oklch(0.7 0.15 280);
   --glow-1: oklch(0.45 0.2 290 / 35%);
+  --chart-runs: #8b7cf6;
+  --chart-failed: #d03b3b;
   --glow-2: oklch(0.5 0.14 220 / 25%);
 }
 

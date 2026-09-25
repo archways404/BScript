@@ -3,6 +3,7 @@ import { Container, LayoutDashboard, ListChecks, Loader2, LogOut, Settings, Term
 import { NavLink, Outlet } from 'react-router'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
+import { useNow } from '@/hooks/use-now'
 import { useRunEvents } from '@/hooks/use-run-events'
 import { api } from '@/lib/api'
 import { keys, useMe } from '@/lib/queries'
@@ -39,6 +40,8 @@ export function AppShell() {
 function SignedIn() {
   const queryClient = useQueryClient()
   useRunEvents()
+  // Re-renders the page every 30s so "x minutes ago" labels keep moving.
+  useNow(true, 30_000)
 
   async function logout() {
     await api.post('/auth/logout')
