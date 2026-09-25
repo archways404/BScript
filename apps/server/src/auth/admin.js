@@ -35,3 +35,13 @@ export async function changePassword(db, newPassword) {
   setSetting(db, 'session_version', version)
   return version
 }
+
+// Recovery path for a lost password (pnpm bscript reset-password). Also works before the
+// first boot. Bumps the session version, so every existing session is signed out.
+export async function resetAdmin(db, { user, password }) {
+  if (user) setSetting(db, 'admin_user', user)
+  else if (!getSetting(db, 'admin_user')) setSetting(db, 'admin_user', 'admin')
+  setSetting(db, 'admin_password_hash', await hashPassword(password))
+  setSetting(db, 'session_version', getAdmin(db).sessionVersion + 1)
+  return getAdmin(db).user
+}

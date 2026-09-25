@@ -1,6 +1,8 @@
 #!/usr/bin/env node
-// Drives the runner without the server, to try "clone → run .BScript steps in order" locally.
+// Drives the runner without the server, to try "clone → run .BScript steps in order" locally,
+// and handles admin recovery.
 //
+//   pnpm bscript reset-password [--user admin] [--password <pw>]
 //   pnpm bscript scripts --repo <url|path> [--ref main]
 //   pnpm bscript run --repo <url|path> [--ref main] [--step a.sh --step b.sh]
 //                    [--allow-fail lint.sh] [--timeout 600]
@@ -12,10 +14,13 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { parseArgs, parseEnv, styleText } from 'node:util'
 import { loadConfig } from './config.js'
+import { resetPasswordCommand } from './reset-password.js'
 import { listScriptsAtCommit, resolveRef, syncMirror } from './runner/git.js'
 import { runPipeline } from './runner/pipeline.js'
 
 const USAGE = `Usage:
+  bscript reset-password [--user <name>] [--password <pw>]
+      Sets the admin password (prompts if --password is omitted) and signs out all sessions.
   bscript scripts --repo <url|path> [--ref <ref>] [--token <t> | --ssh-key <file>]
   bscript run     --repo <url|path> [--ref <ref>] [--step <script>]... [--allow-fail <script>]...
                   [--timeout <sec>] [--env-file <file>] [--secret <NAME>]... [--no-secrets] [--keep]`
@@ -35,17 +40,29 @@ const { values, positionals } = parseArgs({
     'no-secrets': { type: 'boolean', default: false },
     keep: { type: 'boolean', default: false },
     'data-dir': { type: 'string' },
+    user: { type: 'string' },
+    password: { type: 'string' },
     help: { type: 'boolean', short: 'h', default: false },
   },
 })
 
 const command = positionals[0]
+const config = loadConfig({ ...process.env, BSCRIPT_DATA_DIR: values['data-dir'] ?? process.env.BSCRIPT_DATA_DIR })
+
+if (command === 'reset-password' && !values.help) {
+  try {
+    await resetPasswordCommand({ config, user: values.user, password: values.password })
+    process.exit(0)
+  } catch (err) {
+    console.error(styleText('red', err.message))
+    process.exit(1)
+  }
+}
+
 if (values.help || !command || !values.repo) {
   console.log(USAGE)
   process.exit(values.help ? 0 : 1)
 }
-
-const config = loadConfig({ ...process.env, BSCRIPT_DATA_DIR: values['data-dir'] ?? process.env.BSCRIPT_DATA_DIR })
 const url = fs.existsSync(values.repo) ? path.resolve(values.repo) : values.repo
 const auth = values.token
   ? { type: 'token', token: values.token }

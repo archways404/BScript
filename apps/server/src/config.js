@@ -8,8 +8,12 @@ function int(env, name, fallback) {
   return value
 }
 
+// Fixed default so the server (run from apps/server) and the CLI (run from the repo root)
+// always share one database. Docker sets BSCRIPT_DATA_DIR=/data explicitly.
+const DEFAULT_DATA_DIR = path.resolve(import.meta.dirname, '../.data')
+
 export function loadConfig(env = process.env) {
-  const dataDir = path.resolve(env.BSCRIPT_DATA_DIR || './.data')
+  const dataDir = env.BSCRIPT_DATA_DIR ? path.resolve(env.BSCRIPT_DATA_DIR) : DEFAULT_DATA_DIR
   return {
     production: env.NODE_ENV === 'production',
     port: int(env, 'PORT', 3000),

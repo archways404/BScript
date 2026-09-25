@@ -11,6 +11,6 @@
     "build": "pnpm --filter web build",
     "start": "pnpm --filter server start",
     "test": "pnpm -r run test",
-    "bscript": "node apps/server/src/cli.js"
+    "bscript": "node --env-file-if-exists=.env apps/server/src/cli.js"
   }
 }

@@ -8,7 +8,14 @@ See [PLAN.md](PLAN.md) for the design and milestones.
 
 The runner, run queue, REST API and web UI work. GitHub webhook and cron triggers, and the Docker image, are next.
 
-On first start the server creates the admin from `BSCRIPT_ADMIN_USER` / `BSCRIPT_ADMIN_PASSWORD`. If no password is set, it generates one and prints it to the log once.
+On first start the server creates the admin from `BSCRIPT_ADMIN_USER` / `BSCRIPT_ADMIN_PASSWORD`. If no password is set, it generates one and prints it to the log once. After that, changing the env var does nothing. To set a new password (for example if you lost the generated one):
+
+```sh
+pnpm bscript reset-password            # prompts for the new password
+pnpm bscript reset-password --user ops # also renames the admin
+```
+
+It works while the server is running and signs out every existing session.
 
 ## Development
 
