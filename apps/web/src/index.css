@@ -1,0 +1,120 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Light tokens live on :root and dark tokens on .dark, the shadcn convention, so components
+ * added with `shadcn add` work unchanged. <html class="dark"> is the default (see index.html).
+ *
+ * Dark mode is true black; surfaces are translucent so backdrop-blur gives the frosted-glass
+ * look over the ambient glow behind the app.
+ */
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.975 0.003 270);
+  --foreground: oklch(0.18 0.01 270);
+  --card: oklch(1 0 0 / 55%);
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0 / 80%);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.2 0.01 270);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0 0 0 / 5%);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0 0 0 / 4%);
+  --muted-foreground: oklch(0.5 0.015 270);
+  --accent: oklch(0 0 0 / 6%);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.58 0.22 27);
+  --success: oklch(0.6 0.15 155);
+  --warning: oklch(0.7 0.15 75);
+  --border: oklch(0 0 0 / 9%);
+  --input: oklch(0 0 0 / 12%);
+  --ring: oklch(0.55 0.15 280);
+  --glow-1: oklch(0.8 0.12 290 / 45%);
+  --glow-2: oklch(0.85 0.1 210 / 40%);
+}
+
+.dark {
+  --background: oklch(0 0 0);
+  --foreground: oklch(0.96 0 0);
+  --card: oklch(1 0 0 / 4%);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.12 0 0 / 85%);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.96 0 0);
+  --primary-foreground: oklch(0 0 0);
+  --secondary: oklch(1 0 0 / 8%);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(1 0 0 / 5%);
+  --muted-foreground: oklch(0.68 0.01 270);
+  --accent: oklch(1 0 0 / 9%);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.65 0.21 25);
+  --success: oklch(0.72 0.16 155);
+  --warning: oklch(0.8 0.15 80);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.7 0.15 280);
+  --glow-1: oklch(0.45 0.2 290 / 35%);
+  --glow-2: oklch(0.5 0.14 220 / 25%);
+}
+
+@theme inline {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground min-h-svh antialiased;
+  }
+}
+
+/* Frosted-glass surface: translucent fill, blur, hairline border, soft inner highlight. */
+@utility glass {
+  background-color: var(--card);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 6%);
+}
+
+/* Ambient colour behind the glass; without it blur has nothing to show on pure black. */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40rem 30rem at 15% -10%, var(--glow-1), transparent 70%),
+    radial-gradient(35rem 25rem at 95% 10%, var(--glow-2), transparent 70%);
+}
