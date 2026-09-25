@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Env: IMAGE (e.g. ghcr.io/acme/web), REGISTRY (e.g. ghcr.io),
-#      REGISTRY_USER and REGISTRY_PASSWORD (mark the password as a secret).
+# @env IMAGE                     Image name without tag, e.g. ghcr.io/acme/web
+# @env REGISTRY                  Registry host, e.g. ghcr.io
+# @env REGISTRY_USER             Registry user name
+# @env REGISTRY_PASSWORD secret  Registry password or token
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_lib/log.sh"
 

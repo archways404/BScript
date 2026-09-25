@@ -50,6 +50,7 @@ export function RunsTable({ runs, isPending, showPipeline = true, emptyAction })
             <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 text-xs">
               <span className="font-mono">{runRefLabel(run)}</span>
               {run.prNumber && <span>PR #{run.prNumber}</span>}
+              {run.environmentName && <span className="text-foreground/80">{run.environmentName}</span>}
               {run.commitSha && (
                 <span className="flex items-center gap-1 font-mono">
                   <GitCommitHorizontal className="size-3" />

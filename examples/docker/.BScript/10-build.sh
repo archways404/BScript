@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Needs the docker CLI and a daemon on the runner (see examples/README.md).
+#
+# @env IMAGE  Image name without tag, e.g. ghcr.io/acme/web
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_lib/log.sh"
 

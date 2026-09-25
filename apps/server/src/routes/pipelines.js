@@ -1,5 +1,6 @@
 import { HttpError, notFound } from '../http-error.js'
 import { removeRunLogs } from '../runner/queue.js'
+import { getEnvironment } from '../store/environments.js'
 import { getProject } from '../store/projects.js'
 import {
   createPipeline,
@@ -27,7 +28,8 @@ const stepSchema = {
 
 const pipelineFields = {
   name,
-  branchFilter: { type: 'string', minLength: 1, maxLength: 255 },
+  branchFilter: { type: 'string', maxLength: 255 },
+  environmentId: { type: ['integer', 'null'], minimum: 1 },
   triggers: {
     type: 'object',
     additionalProperties: false,
@@ -40,6 +42,13 @@ const pipelineFields = {
   },
   cronExpr: { type: ['string', 'null'], maxLength: 100 },
   enabled: { type: 'boolean' },
+}
+
+function checkEnvironment(db, projectId, environmentId) {
+  if (environmentId == null) return
+  if (getEnvironment(db, environmentId)?.projectId !== projectId) {
+    throw new HttpError(400, 'Environment not found in this project')
+  }
 }
 
 function checkScriptPaths(steps) {
@@ -91,6 +100,7 @@ export default async function pipelineRoutes(app, { scheduler }) {
       if (!getProject(db, request.params.id)) throw notFound('Project')
       checkScriptPaths(request.body.steps ?? [])
       checkSchedule(request.body.triggers ?? {}, request.body.cronExpr)
+      checkEnvironment(db, request.params.id, request.body.environmentId)
       const pipeline = createPipeline(db, request.params.id, request.body)
       scheduler?.sync()
       return reply.code(201).send(withSchedule(pipeline))
@@ -115,6 +125,7 @@ export default async function pipelineRoutes(app, { scheduler }) {
         { ...current.triggers, ...request.body.triggers },
         request.body.cronExpr === undefined ? current.cronExpr : request.body.cronExpr,
       )
+      checkEnvironment(db, current.projectId, request.body.environmentId)
       const pipeline = updatePipeline(db, request.params.id, request.body)
       scheduler?.sync()
       return withSchedule(pipeline)

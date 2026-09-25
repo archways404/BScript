@@ -29,12 +29,21 @@ export default async function runRoutes(app, { queue }) {
         body: {
           type: ['object', 'null'],
           additionalProperties: false,
-          properties: { ref: { type: 'string', minLength: 1, maxLength: 255 } },
+          properties: {
+            ref: { type: 'string', minLength: 1, maxLength: 255 },
+            // Omit for the pipeline's default environment; null for none.
+            environmentId: { type: ['integer', 'null'], minimum: 1 },
+          },
         },
       },
     },
     async (request, reply) => {
-      const run = queue.enqueue({ pipelineId: request.params.id, ref: request.body?.ref, ...triggerFrom(request) })
+      const run = queue.enqueue({
+        pipelineId: request.params.id,
+        ref: request.body?.ref,
+        environmentId: request.body?.environmentId,
+        ...triggerFrom(request),
+      })
       return reply.code(201).send(run)
     },
   )
@@ -76,6 +85,7 @@ export default async function runRoutes(app, { queue }) {
       ref: run.commitSha ?? run.ref,
       branch: run.branch,
       prNumber: run.prNumber,
+      environmentId: run.environmentId,
       fromFork: run.fromFork,
       ...triggerFrom(request),
     })

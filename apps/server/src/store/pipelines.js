@@ -22,6 +22,7 @@ function toPipeline(row, steps) {
     branchFilter: row.branch_filter,
     triggers: { ...DEFAULT_TRIGGERS, ...JSON.parse(row.triggers) },
     cronExpr: row.cron_expr,
+    environmentId: row.environment_id,
     enabled: Boolean(row.enabled),
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
@@ -70,14 +71,26 @@ export function replaceSteps(db, pipelineId, steps) {
   return getSteps(db, pipelineId)
 }
 
-export function createPipeline(db, projectId, { name, branchFilter = '*', triggers, cronExpr = null, enabled = true, steps = [] }) {
+export function createPipeline(
+  db,
+  projectId,
+  { name, branchFilter = '', triggers, cronExpr = null, environmentId = null, enabled = true, steps = [] },
+) {
   return db.transaction(() => {
     const result = db
       .prepare(
-        `INSERT INTO pipelines (project_id, name, branch_filter, triggers, cron_expr, enabled)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO pipelines (project_id, name, branch_filter, triggers, cron_expr, environment_id, enabled)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(projectId, name, branchFilter, JSON.stringify({ ...DEFAULT_TRIGGERS, ...triggers }), cronExpr, enabled ? 1 : 0)
+      .run(
+        projectId,
+        name,
+        branchFilter,
+        JSON.stringify({ ...DEFAULT_TRIGGERS, ...triggers }),
+        cronExpr,
+        environmentId,
+        enabled ? 1 : 0,
+      )
     if (steps.length) replaceSteps(db, result.lastInsertRowid, steps)
     return getPipeline(db, result.lastInsertRowid)
   })()
@@ -96,6 +109,7 @@ export function updatePipeline(db, id, patch) {
     branchFilter: 'branch_filter',
     triggers: 'triggers',
     cronExpr: 'cron_expr',
+    environmentId: 'environment_id',
     enabled: 'enabled',
   })
   if (sql) {

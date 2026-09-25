@@ -148,5 +148,6 @@ Multi-stage build: `node:22-bookworm-slim` + pnpm → build web → prod deps fo
 6. ✅ **UI** — screens 1–6.
 7. ✅ **Triggers** — GitHub webhook (push/PR, branch filter), croner scheduler.
 8. ✅ **Docker** — Dockerfile, compose example, README.
-9. **Later** — Docker executor, GitHub commit statuses, artifacts, notifications.
+9. ✅ **Environments + env detection** — per-project environments with branch restrictions; `# @env` declarations, inferred requirements, checklist UI, pre-run check.
+10. **Later** — Docker executor, per-project cache dir, GitHub commit statuses, artifacts, notifications.
 

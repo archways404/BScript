@@ -18,7 +18,11 @@ export function EnvEditor({ scope, id }) {
   const env = useEnv(scope, id)
   const [draft, setDraft] = useState({ key: '', value: '', secret: false })
   const base = `/${scope}s/${id}/env`
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.env(scope, id) })
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: keys.env(scope, id) })
+    queryClient.invalidateQueries({ queryKey: ['requirements'] })
+    if (scope === 'environment') queryClient.invalidateQueries({ predicate: (q) => q.queryKey.includes('environments') })
+  }
 
   const save = useMutation({
     mutationFn: ({ key, value, secret }) => api.put(`${base}/${encodeURIComponent(key)}`, { value, secret }),

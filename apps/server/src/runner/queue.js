@@ -3,6 +3,8 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { HttpError } from '../http-error.js'
 import { resolveRunEnv } from '../store/env-vars.js'
+import { getEnvironment } from '../store/environments.js'
+import { matchesBranchFilter } from '../triggers/branch-filter.js'
 import { getPipeline } from '../store/pipelines.js'
 import { getProject, getProjectAuth } from '../store/projects.js'
 import {
@@ -66,19 +68,40 @@ export function createRunQueue({ db, cipher, config, log = console }) {
     }
   }
 
-  function enqueue({ pipelineId, trigger, ref, branch, prNumber = null, fromFork = false, triggeredBy = null }) {
+  // `environmentId` undefined means the pipeline's default; null means none.
+  function chooseEnvironment(pipeline, environmentId, branch) {
+    const id = environmentId === undefined ? pipeline.environmentId : environmentId
+    if (id === null || id === undefined) return null
+    const environment = getEnvironment(db, id)
+    if (!environment || environment.projectId !== pipeline.projectId) {
+      throw new HttpError(400, 'Environment not found in this project')
+    }
+    // Keeps e.g. production secrets away from feature branches.
+    if (environment.branchFilter && !(branch && matchesBranchFilter(environment.branchFilter, branch))) {
+      throw new HttpError(
+        403,
+        `Environment "${environment.name}" only allows branches matching "${environment.branchFilter}"` +
+          (branch ? `, not "${branch}"` : '; this run has no branch'),
+      )
+    }
+    return environment
+  }
+
+  function enqueue({ pipelineId, trigger, ref, branch, prNumber = null, environmentId, fromFork = false, triggeredBy = null }) {
     const pipeline = getPipeline(db, pipelineId)
     if (!pipeline) throw new HttpError(404, 'Pipeline not found')
     if (!pipeline.steps.length) throw new HttpError(400, 'Pipeline has no steps')
     const project = getProject(db, pipeline.projectId)
     const resolvedRef = ref || project.defaultBranch
+    // A branch name given as the ref is the branch; a commit sha says nothing about one.
+    const resolvedBranch = branch ?? (isCommitSha(resolvedRef) ? null : resolvedRef.replace(/^refs\/heads\//, ''))
     const run = createRun(db, {
       pipelineId,
       trigger,
       ref: resolvedRef,
-      // A branch name given as the ref is the branch; a commit sha says nothing about one.
-      branch: branch ?? (isCommitSha(resolvedRef) ? null : resolvedRef.replace(/^refs\/heads\//, '')),
+      branch: resolvedBranch,
       prNumber,
+      environment: chooseEnvironment(pipeline, environmentId, resolvedBranch),
       fromFork,
       triggeredBy,
     })
@@ -172,7 +195,7 @@ export function createRunQueue({ db, cipher, config, log = console }) {
         continueOnError: step.continueOnError,
         timeoutSec: step.timeoutSec,
       })),
-      vars: resolveRunEnv(db, cipher, project.id, pipeline.id),
+      vars: resolveRunEnv(db, cipher, project.id, pipeline.id, run.environmentId),
       includeSecrets: !run.fromFork,
       meta: {
         project: project.name,
@@ -180,6 +203,7 @@ export function createRunQueue({ db, cipher, config, log = console }) {
         trigger: run.trigger,
         branch: run.branch ?? undefined,
         prNumber: run.prNumber ?? undefined,
+        environment: run.environmentName ?? undefined,
       },
       paths: runPaths(config),
       signal: entry.controller.signal,

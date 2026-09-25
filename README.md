@@ -39,8 +39,9 @@ It works while the server is running and signs out every session.
 
 1. **Add scripts.** Create `.BScript/` in your repo and commit some scripts. [examples/](examples) has ready-made folders for Node, Docker and SSH deploys, plus a guide to writing scripts: what they can rely on, env vars, secrets and helpers.
 2. **Create the project.** In the UI, use **New project** with the repo URL. Private repos need an access token (HTTPS) or a deploy key (SSH).
-3. **Create a pipeline.** Pick scripts from `.BScript/` and drag them into order. For each step you can set **Allow failure** and a timeout. Add env vars at project or pipeline level; mark tokens as **secret**.
-4. **Choose triggers** in the pipeline's settings:
+3. **Create a pipeline.** Pick scripts from `.BScript/` and drag them into order. For each step you can set **Allow failure** and a timeout. The **Variables these steps use** card lists what the scripts need (see [declaring variables](examples/README.md#declaring-the-variables-a-script-needs)) and where each is set.
+4. **Add variables and environments.** Set variables on the project, the pipeline, or an **environment**. Environments are named targets such as `staging` and `production`, each with its own values. A run uses the pipeline's default environment or the one picked at Run, and environment values win. An environment can be limited to certain branches (e.g. `production` → `main`), so other branches can never run with its secrets. Mark tokens as **secret**.
+5. **Choose triggers** in the pipeline's settings:
    - **Manual & API:** the Run button, or `POST /api/pipelines/:id/runs` with an API token from Settings (`Authorization: Bearer bst_…`).
    - **Push / Pull request:** add the webhook shown under the project's **Settings** to GitHub (content type `application/json`, push and pull request events). The branch filter takes globs, such as `main, release/*, !release/old`. For pull requests it matches the target branch. `[skip ci]` in a commit message skips the run.
    - **Schedule:** a cron expression, such as `0 3 * * *`.

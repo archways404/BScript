@@ -7,6 +7,7 @@ import { AddStep } from '@/components/add-step'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { EnvEditor } from '@/components/env-editor'
 import { PageHeader } from '@/components/page-header'
+import { RequirementsCard } from '@/components/requirements-card'
 import { RunButton } from '@/components/run-button'
 import { RunsTable } from '@/components/runs-table'
 import { StepList } from '@/components/step-list'
@@ -14,11 +15,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
 import { timeAgo } from '@/lib/format'
-import { keys, usePipeline, useProject, useRuns, useScripts } from '@/lib/queries'
+import { keys, useEnvironments, usePipeline, useProject, useRuns, useScripts } from '@/lib/queries'
 import { NotFoundPage } from '@/pages/not-found'
 
 let nextUid = 0
@@ -45,6 +47,7 @@ function PipelineEditor({ pipeline }) {
   const navigate = useNavigate()
   const project = useProject(pipeline.projectId)
   const scripts = useScripts(pipeline.projectId)
+  const environments = useEnvironments(pipeline.projectId)
   const runs = useRuns({ pipelineId: pipeline.id, limit: 8 })
 
   const [steps, setSteps] = useState(() => pipeline.steps.map(withUid))
@@ -105,8 +108,11 @@ function PipelineEditor({ pipeline }) {
             />
             {project.data && (
               <RunButton
+                key={pipeline.environmentId ?? 'none'}
                 pipelineId={pipeline.id}
                 defaultRef={project.data.defaultBranch}
+                environments={environments.data ?? []}
+                defaultEnvironmentId={pipeline.environmentId}
                 disabled={dirty || steps.length === 0}
                 disabledReason={dirty ? 'Save your step changes first' : 'Add a step first'}
               />
@@ -147,10 +153,14 @@ function PipelineEditor({ pipeline }) {
             </CardContent>
           </Card>
 
+          <RequirementsCard projectId={pipeline.projectId} pipelineId={pipeline.id} defaultEnvironmentId={pipeline.environmentId} steps={steps} />
+
           <Card>
             <CardHeader>
-              <CardTitle>Environment</CardTitle>
-              <CardDescription>Override or add to the project's variables for this pipeline only.</CardDescription>
+              <CardTitle>Pipeline variables</CardTitle>
+              <CardDescription>
+                For this pipeline only. They override project variables; the run's environment overrides both.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <EnvEditor scope="pipeline" id={pipeline.id} />
@@ -159,7 +169,7 @@ function PipelineEditor({ pipeline }) {
         </div>
 
         <div className="grid content-start gap-6">
-          <PipelineSettings pipeline={pipeline} onSaved={refresh} />
+          <PipelineSettings pipeline={pipeline} environments={environments.data ?? []} onSaved={refresh} />
           <div>
             <h2 className="text-muted-foreground mb-3 text-sm font-medium">Recent runs</h2>
             <RunsTable runs={runs.data} isPending={runs.isPending} showPipeline={false} />
@@ -177,13 +187,16 @@ const TRIGGERS = [
   { key: 'cron', label: 'Schedule', hint: 'Cron expression below' },
 ]
 
-function PipelineSettings({ pipeline, onSaved }) {
+const NO_ENVIRONMENT = 'none'
+
+function PipelineSettings({ pipeline, environments, onSaved }) {
   const [form, setForm] = useState({
     name: pipeline.name,
     branchFilter: pipeline.branchFilter,
     cronExpr: pipeline.cronExpr ?? '',
     enabled: pipeline.enabled,
     triggers: pipeline.triggers,
+    environmentId: pipeline.environmentId,
   })
   const set = (patch) => setForm({ ...form, ...patch })
 
@@ -212,6 +225,26 @@ function PipelineSettings({ pipeline, onSaved }) {
             <Label htmlFor="pl-name">Name</Label>
             <Input id="pl-name" value={form.name} onChange={(e) => set({ name: e.target.value })} required />
           </div>
+          <div className="grid gap-2">
+            <Label>Default environment</Label>
+            <Select
+              value={form.environmentId ? String(form.environmentId) : NO_ENVIRONMENT}
+              onValueChange={(v) => set({ environmentId: v === NO_ENVIRONMENT ? null : Number(v) })}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_ENVIRONMENT}>None</SelectItem>
+                {environments.map((e) => (
+                  <SelectItem key={e.id} value={String(e.id)}>
+                    {e.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-muted-foreground text-xs">Used by webhook and scheduled runs, and preselected at Run.</p>
+          </div>
           <label className="flex items-center justify-between gap-2 text-sm">
             Enabled
             <Switch checked={form.enabled} onCheckedChange={(enabled) => set({ enabled })} />
@@ -238,11 +271,11 @@ function PipelineSettings({ pipeline, onSaved }) {
               value={form.branchFilter}
               onChange={(e) => set({ branchFilter: e.target.value })}
               className="font-mono"
-              placeholder="*"
+              placeholder="All branches"
             />
             <p className="text-muted-foreground text-xs">
-              Glob for webhook triggers, e.g. <code className="font-mono">main</code> or{' '}
-              <code className="font-mono">release/*</code>.
+              Globs for webhook triggers, e.g. <code className="font-mono">main, release/*</code>. Empty runs on every
+              branch.
             </p>
           </div>
           {form.triggers.cron && (

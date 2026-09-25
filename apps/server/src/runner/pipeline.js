@@ -1,10 +1,27 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { resolveScriptPath } from './discover.js'
+import { listBScriptFiles, resolveScriptPath, SCRIPTS_DIR } from './discover.js'
 import { buildStepEnv } from './env.js'
 import { runScript } from './executor/local.js'
 import { createWorkspace, resolveRef, syncMirror } from './git.js'
 import { createStepLog } from './logs.js'
+import { collectRequirements, missingDeclared } from './requirements.js'
+
+// Fails fast, before any step runs, when a script's `# @env NAME` contract isn't met. Only
+// declared vars are enforced: inferred ones may sit on code paths that never execute.
+async function checkDeclaredEnv(workspaceDir, steps, vars, includeSecrets) {
+  const requirements = await collectRequirements({
+    steps: steps.filter((step) => !step.continueOnError).map((step) => ({ name: step.name ?? step.script, scriptPath: step.script })),
+    files: await listBScriptFiles(workspaceDir),
+    read: (file) => fs.readFile(path.join(workspaceDir, SCRIPTS_DIR, file), 'utf8').catch(() => null),
+  })
+  const available = new Set(vars.filter((v) => includeSecrets || !v.secret).map((v) => v.key))
+  const missing = missingDeclared(requirements, available)
+  if (missing.length) {
+    const list = missing.map((r) => `${r.name} (${r.steps.join(', ')})`).join(', ')
+    throw new Error(`Missing required env vars: ${list}. Set them on the project, pipeline or environment.`)
+  }
+}
 
 function now() {
   return new Date().toISOString()
@@ -69,6 +86,7 @@ export async function runPipeline({
       originUrl: repo.url,
     })
     onEvent({ type: 'run:checkout', commitSha: summary.commitSha })
+    await checkDeclaredEnv(workspaceDir, steps, vars, includeSecrets)
 
     let stopped = false
     for (const [index, step] of steps.entries()) {
@@ -89,6 +107,7 @@ export async function runPipeline({
           BSCRIPT_REF: ref,
           BSCRIPT_BRANCH: meta.branch,
           BSCRIPT_PR_NUMBER: meta.prNumber,
+          BSCRIPT_ENVIRONMENT: meta.environment,
           BSCRIPT_COMMIT_SHA: summary.commitSha,
           BSCRIPT_WORKSPACE: workspaceDir,
           BSCRIPT_STEP_NAME: result.name,

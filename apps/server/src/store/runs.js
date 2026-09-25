@@ -27,6 +27,8 @@ function toRun(row) {
     ref: row.ref,
     branch: row.branch,
     prNumber: row.pr_number,
+    environmentId: row.environment_id,
+    environmentName: row.environment_name,
     commitSha: row.commit_sha,
     fromFork: Boolean(row.from_fork),
     triggeredBy: row.triggered_by,
@@ -43,13 +45,28 @@ const SELECT_RUN = `
   JOIN pipelines p ON p.id = r.pipeline_id
   JOIN projects pr ON pr.id = p.project_id`
 
-export function createRun(db, { pipelineId, trigger, ref, branch = null, prNumber = null, fromFork = false, triggeredBy = null }) {
+export function createRun(
+  db,
+  { pipelineId, trigger, ref, branch = null, prNumber = null, environment = null, fromFork = false, triggeredBy = null },
+) {
   const result = db
     .prepare(
-      `INSERT INTO runs (pipeline_id, trigger, ref, branch, pr_number, from_fork, triggered_by, queued_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO runs (pipeline_id, trigger, ref, branch, pr_number, environment_id, environment_name,
+                         from_fork, triggered_by, queued_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(pipelineId, trigger, ref, branch, prNumber, fromFork ? 1 : 0, triggeredBy, now())
+    .run(
+      pipelineId,
+      trigger,
+      ref,
+      branch,
+      prNumber,
+      environment?.id ?? null,
+      environment?.name ?? null,
+      fromFork ? 1 : 0,
+      triggeredBy,
+      now(),
+    )
   return getRun(db, result.lastInsertRowid)
 }
 

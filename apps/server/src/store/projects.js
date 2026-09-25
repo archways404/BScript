@@ -96,9 +96,11 @@ export function deleteProject(db, id) {
       .prepare('SELECT r.id FROM runs r JOIN pipelines p ON p.id = r.pipeline_id WHERE p.project_id = ?')
       .pluck()
       .all(id)
+    const environmentIds = db.prepare('SELECT id FROM environments WHERE project_id = ?').pluck().all(id)
     const deleteEnv = db.prepare('DELETE FROM env_vars WHERE scope = ? AND scope_id = ?')
     deleteEnv.run('project', id)
     for (const pipelineId of pipelineIds) deleteEnv.run('pipeline', pipelineId)
+    for (const environmentId of environmentIds) deleteEnv.run('environment', environmentId)
     const { changes } = db.prepare('DELETE FROM projects WHERE id = ?').run(id)
     return changes ? runIds : null
   })()

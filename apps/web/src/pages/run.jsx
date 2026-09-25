@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertCircle, ChevronRight, ExternalLink, GitBranch, GitCommitHorizontal, Loader2, RotateCcw, Square, User } from 'lucide-react'
+import { AlertCircle, ChevronRight, ExternalLink, GitBranch, GitCommitHorizontal, Layers, Loader2, RotateCcw, Square, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
@@ -70,6 +70,12 @@ function RunView({ run, lines }) {
               {runRefLabel(run)}
             </span>
             {run.prNumber && <span>PR #{run.prNumber}</span>}
+            {run.environmentName && (
+              <span className="flex items-center gap-1.5">
+                <Layers className="size-3.5" />
+                {run.environmentName}
+              </span>
+            )}
             {run.commitSha && (
               <span className="flex items-center gap-1.5 font-mono">
                 <GitCommitHorizontal className="size-3.5" />

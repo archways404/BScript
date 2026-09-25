@@ -30,7 +30,7 @@ npm test
 - **Working directory:** the repository root, checked out at the run's exact commit. Every step in a run shares it, so files written by one step are there for the next. The workspace is deleted when the run ends.
 - **Exit code:** 0 means success. Anything else, a timeout, or a missing script fails the step. A failed step stops the pipeline unless it is marked **Allow failure**.
 - **Background processes** are killed when the step's script exits. Start services inside the step that uses them.
-- **Environment:** project variables, then pipeline variables (these win on a name clash), then the built-ins below. The server's own environment is never passed through.
+- **Environment:** project variables, then pipeline variables, then the run's environment's variables (for example `staging` or `production`), each level winning over the one before. The built-ins below are added last. The server's own environment is never passed through.
 
 | Variable | Example | Notes |
 |---|---|---|
@@ -41,9 +41,24 @@ npm test
 | `BSCRIPT_REF` | `main` or a commit sha | What was asked for. Webhook runs pin the exact commit. |
 | `BSCRIPT_BRANCH` | `main`, `feature/login` | The PR's head branch for pull requests. Empty when a run was started from a bare commit. |
 | `BSCRIPT_PR_NUMBER` | `17` | Pull request runs only. |
+| `BSCRIPT_ENVIRONMENT` | `production` | Empty when the run has no environment. |
 | `BSCRIPT_COMMIT_SHA` | `9f2c…` | Full 40-character sha. |
 | `BSCRIPT_WORKSPACE` | `/data/work/42` | Same as the working directory. |
 | `BSCRIPT_STEP_NAME`, `BSCRIPT_STEP_INDEX` | `Test`, `1` | Index starts at 0. |
+
+### Declaring the variables a script needs
+
+List them in a comment, anywhere in the script or in a helper it sources:
+
+```bash
+# @env IMAGE                     Image name without tag, e.g. ghcr.io/acme/web
+# @env REGISTRY_PASSWORD secret  Registry password or token
+# @env DEPLOY_RESTART optional   Command run after deploying
+```
+
+The format is `# @env NAME`, then optional `secret` / `optional` flags, then a description. The pipeline editor turns these into a checklist showing where each variable is set, with an **Add** button that pre-marks secrets. If a required variable is missing when a run starts, the run stops before the first step and names what's missing. Steps marked **Allow failure** aren't checked.
+
+Undeclared variables are guessed from the script: `require_env A B` and `${A:?}` count as required, `${A:-default}` as optional, and any other `$UPPER_CASE` the script reads as possibly needed. Guesses show in the checklist but never block a run, because the code that reads them may never execute.
 
 ### Secrets
 

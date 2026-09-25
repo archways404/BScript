@@ -1,6 +1,7 @@
 import { HttpError, notFound } from '../http-error.js'
 import { isValidEnvKey } from '../runner/env.js'
 import { deleteEnvVar, listEnvVars, setEnvVar } from '../store/env-vars.js'
+import { getEnvironment } from '../store/environments.js'
 import { getPipeline } from '../store/pipelines.js'
 import { getProject } from '../store/projects.js'
 import { idParams } from './schemas.js'
@@ -8,6 +9,7 @@ import { idParams } from './schemas.js'
 const SCOPES = [
   { scope: 'project', prefix: '/api/projects/:id/env', exists: getProject, label: 'Project' },
   { scope: 'pipeline', prefix: '/api/pipelines/:id/env', exists: getPipeline, label: 'Pipeline' },
+  { scope: 'environment', prefix: '/api/environments/:id/env', exists: getEnvironment, label: 'Environment' },
 ]
 
 const keyParams = {

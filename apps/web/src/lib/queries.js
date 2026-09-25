@@ -8,6 +8,8 @@ export const keys = {
   pipelines: (projectId) => ['projects', projectId, 'pipelines'],
   scripts: (projectId, ref) => ['projects', projectId, 'scripts', ref ?? ''],
   webhook: (projectId) => ['projects', projectId, 'webhook'],
+  environments: (projectId) => ['projects', projectId, 'environments'],
+  requirements: (projectId) => ['requirements', projectId],
   pipeline: (id) => ['pipelines', id],
   env: (scope, id) => ['env', scope, id],
   runs: (filters = {}) => ['runs', 'list', filters],
@@ -58,3 +60,19 @@ export function useRuns(filters = {}) {
 }
 
 export const useRun = (id) => useQuery({ queryKey: keys.run(id), queryFn: () => api.get(`/runs/${id}`) })
+
+export const useEnvironments = (projectId) =>
+  useQuery({ queryKey: keys.environments(projectId), queryFn: () => api.get(`/projects/${projectId}/environments`) })
+
+// Env vars the given steps need. Keyed on the script list so unsaved edits are checked too.
+export function useRequirements(projectId, pipelineId, steps) {
+  const scripts = steps.map((s) => ({ name: s.name || s.scriptPath, scriptPath: s.scriptPath }))
+  return useQuery({
+    queryKey: [...keys.requirements(projectId), pipelineId, scripts],
+    queryFn: () => api.post(`/projects/${projectId}/requirements`, { pipelineId, steps: scripts }),
+    enabled: scripts.length > 0,
+    placeholderData: (previous) => previous,
+    staleTime: 10_000,
+    retry: false,
+  })
+}

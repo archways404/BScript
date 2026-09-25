@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog'
 import { CopyButton } from '@/components/copy-button'
 import { EmptyState } from '@/components/empty-state'
 import { EnvEditor } from '@/components/env-editor'
+import { EnvironmentsTab } from '@/components/environments-tab'
 import { PageHeader } from '@/components/page-header'
 import { ProjectFields } from '@/components/project-form'
 import { RunsTable } from '@/components/runs-table'
@@ -31,7 +32,7 @@ import { timeAgo } from '@/lib/format'
 import { keys, usePipelines, useProject, useRuns, useWebhook } from '@/lib/queries'
 import { NotFoundPage } from '@/pages/not-found'
 
-const TABS = ['pipelines', 'runs', 'environment', 'settings']
+const TABS = ['pipelines', 'runs', 'variables', 'environments', 'settings']
 
 export function ProjectPage() {
   const { projectId, tab = 'pipelines' } = useParams()
@@ -60,7 +61,8 @@ export function ProjectPage() {
         <TabsList className="glass mb-6">
           <TabsTrigger value="pipelines">Pipelines</TabsTrigger>
           <TabsTrigger value="runs">Runs</TabsTrigger>
-          <TabsTrigger value="environment">Environment</TabsTrigger>
+          <TabsTrigger value="variables">Variables</TabsTrigger>
+          <TabsTrigger value="environments">Environments</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="pipelines">
@@ -69,11 +71,15 @@ export function ProjectPage() {
         <TabsContent value="runs">
           <ProjectRuns projectId={id} />
         </TabsContent>
-        <TabsContent value="environment">
+        <TabsContent value="variables">
           <p className="text-muted-foreground mb-4 text-sm">
-            Available to every pipeline in this project. Pipeline variables with the same name take precedence.
+            Available to every pipeline in this project. Pipeline and environment variables with the same name take
+            precedence.
           </p>
           <EnvEditor scope="project" id={id} />
+        </TabsContent>
+        <TabsContent value="environments">
+          <EnvironmentsTab projectId={id} />
         </TabsContent>
         <TabsContent value="settings">
           <SettingsTab project={project.data} />

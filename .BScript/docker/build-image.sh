@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Builds the BScript image tagged with the commit. Needs the docker CLI and a daemon, which
 # the stock BScript image does not include: run this on a runner image that adds them.
+#
+# @env IMAGE_NAME optional  Image name without tag (default: bscript)
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../_lib/common.sh"
 

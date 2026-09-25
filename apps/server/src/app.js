@@ -7,8 +7,10 @@ import { getAdmin } from './auth/admin.js'
 import { SESSION_COOKIE, createSessionSigner } from './auth/session.js'
 import authRoutes from './routes/auth.js'
 import envRoutes from './routes/env.js'
+import environmentRoutes from './routes/environments.js'
 import pipelineRoutes from './routes/pipelines.js'
 import projectRoutes from './routes/projects.js'
+import requirementRoutes from './routes/requirements.js'
 import runRoutes from './routes/runs.js'
 import tokenRoutes from './routes/tokens.js'
 import webhookRoutes from './routes/webhooks.js'
@@ -81,6 +83,8 @@ export async function buildApp({
   await app.register(projectRoutes, { scheduler })
   await app.register(pipelineRoutes, { scheduler })
   await app.register(envRoutes)
+  await app.register(environmentRoutes)
+  await app.register(requirementRoutes)
   await app.register(runRoutes, { queue })
   await app.register(tokenRoutes)
   await app.register(webhookRoutes, { queue })

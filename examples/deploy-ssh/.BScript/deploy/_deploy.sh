@@ -1,8 +1,12 @@
 # Shared deploy logic, sourced by deploy/staging.sh and deploy/production.sh.
-# Not a step itself because its name starts with `_`.
+# Not a step itself because its name starts with `_`. Set these per environment
+# (staging / production) so the same scripts deploy to different hosts.
 #
-# Env: DEPLOY_HOST (user@host), DEPLOY_PATH (/srv/app), SSH_PRIVATE_KEY (secret),
-#      SSH_KNOWN_HOSTS (output of `ssh-keyscan host`), optional DEPLOY_RESTART command.
+# @env DEPLOY_HOST              SSH target, user@host
+# @env DEPLOY_PATH              Directory on the host, e.g. /srv/app
+# @env SSH_PRIVATE_KEY secret   Deploy key with access to DEPLOY_HOST
+# @env SSH_KNOWN_HOSTS          Output of `ssh-keyscan <host>`
+# @env DEPLOY_RESTART optional  Command run on the host after switching releases
 
 deploy_to() {
   local environment="$1"

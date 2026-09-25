@@ -51,3 +51,18 @@ export function resolveScriptPath(repoDir, scriptPath) {
   }
   return full
 }
+
+// Every file under <repoDir>/.BScript, helpers included, as POSIX paths relative to it.
+export async function listBScriptFiles(repoDir) {
+  const root = path.join(repoDir, SCRIPTS_DIR)
+  try {
+    const entries = await fs.readdir(root, { recursive: true, withFileTypes: true })
+    return entries
+      .filter((entry) => entry.isFile())
+      .map((entry) => path.relative(root, path.join(entry.parentPath, entry.name)).split(path.sep).join('/'))
+      .sort()
+  } catch (err) {
+    if (err.code === 'ENOENT') return []
+    throw err
+  }
+}

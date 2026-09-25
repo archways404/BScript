@@ -162,3 +162,22 @@ export async function listScriptsAtCommit(mirrorDir, sha) {
     .filter((file) => !isHelperPath(file))
     .sort()
 }
+
+// Every file under .BScript/ at a commit, helpers included, relative to .BScript/.
+export async function listBScriptFiles(mirrorDir, sha) {
+  let out
+  try {
+    out = await run(['ls-tree', '-r', '-z', '--name-only', '--full-tree', sha, '--', SCRIPTS_DIR], { cwd: mirrorDir })
+  } catch {
+    return []
+  }
+  return out.split('\0').filter(Boolean).map((file) => file.slice(SCRIPTS_DIR.length + 1))
+}
+
+export async function readBScriptFile(mirrorDir, sha, relativePath) {
+  try {
+    return await run(['show', `${sha}:${SCRIPTS_DIR}/${relativePath}`], { cwd: mirrorDir })
+  } catch {
+    return null
+  }
+}
