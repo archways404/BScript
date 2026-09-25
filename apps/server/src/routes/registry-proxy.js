@@ -1,4 +1,5 @@
 import http from 'node:http'
+import { pipeline } from 'node:stream'
 import { createLoginLimiter } from '../auth/rate-limit.js'
 import { getRegistrySettings } from '../store/registry.js'
 
@@ -27,7 +28,11 @@ function forward(request, reply, upstream, onDone) {
     delete out.connection
     delete out['keep-alive']
     reply.raw.writeHead(res.statusCode, out)
-    res.pipe(reply.raw)
+    // pipeline() (unlike pipe) tears the client connection down if the registry goes away
+    // mid-response, so the client sees an error instead of waiting forever.
+    pipeline(res, reply.raw, (err) => {
+      if (err) proxied.destroy()
+    })
   })
   proxied.on('error', (err) => {
     if (!reply.raw.headersSent) {
@@ -41,7 +46,7 @@ function forward(request, reply, upstream, onDone) {
     if (!proxied.writableFinished || !reply.raw.writableFinished) proxied.destroy()
     onDone()
   })
-  request.raw.pipe(proxied)
+  pipeline(request.raw, proxied, () => {})
 }
 
 /**
@@ -61,15 +66,21 @@ export default async function registryProxyRoutes(app, { registry }) {
     if (!settings.enabled) return registryError(reply, 404, 'UNSUPPORTED', 'The registry is turned off')
 
     const readOnly = request.method === 'GET' || request.method === 'HEAD'
-    if (limiter.blocked(request.ip)) return registryError(reply, 429, 'TOOMANYREQUESTS', 'Too many failed logins')
+    const challenge = () =>
+      registryError(reply, 401, 'UNAUTHORIZED', 'authentication required', { 'www-authenticate': 'Basic realm="BScript Registry"' })
 
-    const access = request.headers.authorization ? await registry.auth.check(request.headers.authorization) : null
-    if (request.headers.authorization && !access) limiter.fail(request.ip)
-    if (!access && !(settings.publicPull && readOnly)) {
-      return registryError(reply, 401, 'UNAUTHORIZED', 'authentication required', {
-        'www-authenticate': 'Basic realm="BScript Registry"',
-      })
+    // Wrong credentials are always refused, never downgraded to anonymous.
+    let access = null
+    if (request.headers.authorization) {
+      if (!limiter.hit(request.ip)) return registryError(reply, 429, 'TOOMANYREQUESTS', 'Too many failed logins')
+      access = await registry.auth.check(request.headers.authorization)
+      if (!access) return challenge()
+      limiter.reset(request.ip)
     }
+    // The /v2/ ping always challenges anonymous callers: Docker only sends credentials after
+    // seeing a challenge there. Anonymous pulls, if allowed, work on the image paths.
+    const ping = request.url.split('?')[0].replace(/\/$/, '') === '/v2'
+    if (!access && (ping || !(settings.publicPull && readOnly))) return challenge()
     if (access?.kind === 'run' && request.method === 'DELETE') {
       return registryError(reply, 403, 'DENIED', 'Run credentials cannot delete images')
     }
@@ -78,9 +89,7 @@ export default async function registryProxyRoutes(app, { registry }) {
     if (!upstream) {
       return registryError(reply, 503, 'UNAVAILABLE', `Registry is ${registry.process.status().state}`, { 'retry-after': '10' })
     }
-    if (!readOnly && !registry.beginWrite()) {
-      return registryError(reply, 503, 'UNAVAILABLE', 'Registry maintenance in progress, try again shortly', { 'retry-after': '30' })
-    }
+    if (!readOnly) registry.beginWrite()
     forward(request, reply, upstream, readOnly ? () => {} : once(() => registry.endWrite()))
   }
 

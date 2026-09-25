@@ -51,6 +51,7 @@ async function startServer(t, { scripts = { 'noop.sh': 'true' } } = {}) {
   await app.listen({ port: 0, host: '127.0.0.1' })
   config.port = app.server.address().port
   config.registryAddress = `127.0.0.1:${config.port}`
+  config.registryQuietMs = 0
   await queue.start()
   await registry.start()
   t.after(async () => {

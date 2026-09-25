@@ -84,6 +84,10 @@ export default async function projectRoutes(app, { scheduler }) {
       if (authType !== 'none' && !willHaveCredential) {
         throw new HttpError(400, `A credential is required for ${authType} auth`)
       }
+      // A stored token is not an SSH key (or vice versa): a new type needs a new credential.
+      if (patch.authType && patch.authType !== current.authType && authType !== 'none' && !patch.credential) {
+        throw new HttpError(400, `Enter a new ${authType === 'ssh' ? 'SSH key' : 'access token'} when changing the authentication type`)
+      }
       return updateProject(db, cipher, request.params.id, patch)
     },
   )

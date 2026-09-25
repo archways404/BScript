@@ -78,7 +78,7 @@ export async function runPipeline({
 
   onEvent({ type: 'run:start', at: now() })
   try {
-    await syncMirror({ url: repo.url, mirrorDir: repo.mirrorDir, auth: repo.auth, tmpDir: paths.tmpDir })
+    await syncMirror({ url: repo.url, mirrorDir: repo.mirrorDir, auth: repo.auth, tmpDir: paths.tmpDir, signal })
     summary.commitSha = await resolveRef(repo.mirrorDir, ref)
     await fs.rm(workspaceDir, { recursive: true, force: true })
     await createWorkspace({
@@ -86,6 +86,7 @@ export async function runPipeline({
       sha: summary.commitSha,
       workspaceDir,
       originUrl: repo.url,
+      signal,
     })
     onEvent({ type: 'run:checkout', commitSha: summary.commitSha })
     await checkDeclaredEnv(workspaceDir, steps, vars, includeSecrets)

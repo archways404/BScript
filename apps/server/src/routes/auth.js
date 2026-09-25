@@ -31,14 +31,11 @@ export default async function authRoutes(app, { sessions }) {
       },
     },
     async (request, reply) => {
-      if (limiter.blocked(request.ip)) {
+      if (!limiter.hit(request.ip)) {
         return reply.code(429).send({ error: 'Too many failed attempts, try again later' })
       }
       const admin = await checkCredentials(app.db, request.body.username, request.body.password)
-      if (!admin) {
-        limiter.fail(request.ip)
-        return reply.code(401).send({ error: 'Invalid username or password' })
-      }
+      if (!admin) return reply.code(401).send({ error: 'Invalid username or password' })
       limiter.reset(request.ip)
       setSession(reply, admin)
       return { user: admin.user }

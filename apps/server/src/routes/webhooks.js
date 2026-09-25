@@ -48,7 +48,9 @@ function describeEvent(event, payload, { allowForkPrs }) {
       filterBranch: pr.base.ref,
       run: {
         ref: pr.head.sha,
-        branch: pr.head.ref,
+        // A fork can name its branch "main"; qualify it so environment branch rules and
+        // scripts checking BSCRIPT_BRANCH never mistake it for this repo's branch.
+        branch: fromFork ? `${pr.head.repo?.full_name ?? 'fork'}:${pr.head.ref}` : pr.head.ref,
         prNumber: pr.number,
         fromFork,
         triggeredBy: payload.sender?.login ?? null,

@@ -23,17 +23,30 @@ await ensureAdmin(db, config, app.log)
 await queue.start()
 scheduler.sync()
 
+// Runs and the registry stop first (cancelled runs are recorded as such), then the HTTP
+// server. A second signal, or 30 seconds, forces the exit.
+const SHUTDOWN_TIMEOUT_MS = 30_000
+let shuttingDown = false
 async function shutdown(signal) {
+  if (shuttingDown) {
+    app.log.warn(`${signal} again, exiting now`)
+    process.exit(1)
+  }
+  shuttingDown = true
   app.log.info(`${signal} received, shutting down`)
-  await app.close()
+  setTimeout(() => {
+    app.log.error('Shutdown took too long, exiting')
+    process.exit(1)
+  }, SHUTDOWN_TIMEOUT_MS).unref()
   scheduler.stop()
   await queue.stop()
   await registry.stop()
+  await app.close()
   db.close()
   process.exit(0)
 }
-process.once('SIGTERM', shutdown)
-process.once('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)
+process.on('SIGINT', shutdown)
 
 await app.listen({ port: config.port, host: config.host })
 // After listen: the registry sends its notifications to this server.

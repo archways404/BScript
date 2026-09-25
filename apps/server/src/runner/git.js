@@ -5,25 +5,35 @@ import path from 'node:path'
 import { SCRIPTS_DIR, isHelperPath, isScript } from './discover.js'
 
 const mirrorLocks = new Map()
+// A whole clone of a big repo can take a while; a stalled one is caught sooner by the
+// low-speed limit (HTTP) and keepalives (SSH).
+const GIT_TIMEOUT_MS = 30 * 60 * 1000
 
-function run(args, { cwd, env = {} } = {}) {
+function run(args, { cwd, env = {}, signal } = {}) {
   return new Promise((resolve, reject) => {
     execFile(
       'git',
       args,
       {
         cwd,
+        signal,
+        timeout: GIT_TIMEOUT_MS,
+        killSignal: 'SIGKILL',
         maxBuffer: 64 * 1024 * 1024,
         env: {
           PATH: process.env.PATH,
           HOME: process.env.HOME,
           GIT_TERMINAL_PROMPT: '0',
+          GIT_HTTP_LOW_SPEED_LIMIT: '1000',
+          GIT_HTTP_LOW_SPEED_TIME: '60',
           ...env,
         },
       },
       (err, stdout, stderr) => {
         if (err) {
-          err.message = `git ${args[0]} failed: ${stderr.trim() || err.message}`
+          if (err.name === 'AbortError') err.message = 'Cancelled'
+          else if (err.killed) err.message = `git ${args[0]} timed out`
+          else err.message = `git ${args[0]} failed: ${stderr.trim() || err.message}`
           return reject(err)
         }
         resolve(stdout)
@@ -53,7 +63,8 @@ async function withAuth(auth, tmpDir, fn) {
   if (auth.type === 'ssh') {
     await fs.mkdir(tmpDir, { recursive: true })
     const keyFile = path.join(tmpDir, `key-${crypto.randomUUID()}`)
-    const knownHosts = path.join(tmpDir, 'known_hosts')
+    // Outside tmp (which is wiped at startup) so host keys stay pinned across restarts.
+    const knownHosts = path.join(path.dirname(tmpDir), 'known_hosts')
     const key = auth.privateKey.endsWith('\n') ? auth.privateKey : `${auth.privateKey}\n`
     await fs.writeFile(keyFile, key, { mode: 0o600 })
     try {
@@ -62,6 +73,10 @@ async function withAuth(auth, tmpDir, fn) {
           'ssh',
           `-i ${shellQuote(keyFile)}`,
           '-o IdentitiesOnly=yes',
+          '-o BatchMode=yes',
+          '-o ConnectTimeout=30',
+          '-o ServerAliveInterval=15',
+          '-o ServerAliveCountMax=4',
           '-o StrictHostKeyChecking=accept-new',
           `-o UserKnownHostsFile=${shellQuote(knownHosts)}`,
         ].join(' '),
@@ -85,18 +100,19 @@ async function exists(file) {
 
 // One bare mirror per repo, cloned once and fetched before every run. Runs against the same
 // mirror are serialised so concurrent fetches don't fight over refs.
-export async function syncMirror({ url, mirrorDir, auth, tmpDir }) {
+export async function syncMirror({ url, mirrorDir, auth, tmpDir, signal }) {
   const previous = mirrorLocks.get(mirrorDir) ?? Promise.resolve()
   const current = previous.catch(() => {}).then(async () => {
+    signal?.throwIfAborted()
     await withAuth(auth, tmpDir, async (env) => {
       if (await exists(path.join(mirrorDir, 'HEAD'))) {
         await run(['remote', 'set-url', 'origin', url], { cwd: mirrorDir })
-        await run(['fetch', '--prune', '--quiet', 'origin'], { cwd: mirrorDir, env })
+        await run(['fetch', '--prune', '--quiet', 'origin'], { cwd: mirrorDir, env, signal })
         return
       }
       await fs.mkdir(path.dirname(mirrorDir), { recursive: true })
       try {
-        await run(['clone', '--mirror', '--quiet', '--', url, mirrorDir], { env })
+        await run(['clone', '--mirror', '--quiet', '--', url, mirrorDir], { env, signal })
       } catch (err) {
         await fs.rm(mirrorDir, { recursive: true, force: true })
         throw err
@@ -111,10 +127,10 @@ export async function syncMirror({ url, mirrorDir, auth, tmpDir }) {
   }
 }
 
+// A hex-looking ref is tried as a commit first, then as a branch or tag (e.g. "20240101").
 export async function resolveRef(mirrorDir, ref) {
-  const candidates = /^[0-9a-f]{7,40}$/i.test(ref)
-    ? [ref]
-    : [`refs/heads/${ref}`, `refs/tags/${ref}`, ref]
+  const branchOrTag = [`refs/heads/${ref}`, `refs/tags/${ref}`]
+  const candidates = /^[0-9a-f]{7,40}$/i.test(ref) ? [ref, ...branchOrTag] : [...branchOrTag, ref]
   for (const candidate of candidates) {
     try {
       const sha = await run(['rev-parse', '--verify', '--quiet', `${candidate}^{commit}`], {
@@ -129,11 +145,12 @@ export async function resolveRef(mirrorDir, ref) {
 }
 
 // A throwaway local clone at an exact commit. Local clones hardlink objects, so this is cheap.
-export async function createWorkspace({ mirrorDir, sha, workspaceDir, originUrl }) {
+export async function createWorkspace({ mirrorDir, sha, workspaceDir, originUrl, signal }) {
   await fs.mkdir(path.dirname(workspaceDir), { recursive: true })
-  await run(['clone', '--quiet', '--no-checkout', '--', mirrorDir, workspaceDir])
+  await run(['clone', '--quiet', '--no-checkout', '--', mirrorDir, workspaceDir], { signal })
   await run(['-c', 'advice.detachedHead=false', 'checkout', '--quiet', '--detach', sha], {
     cwd: workspaceDir,
+    signal,
   })
   if (originUrl) await run(['remote', 'set-url', 'origin', originUrl], { cwd: workspaceDir })
 }

@@ -20,7 +20,11 @@ import { NotFoundPage } from '@/pages/not-found'
 const REPLAY_CAP = 5000 // matches the server's per-step replay buffer
 
 export function RunPage() {
-  const runId = Number(useParams().runId)
+  const { runId } = useParams()
+  return <RunPageForRun key={runId} runId={Number(runId)} />
+}
+
+function RunPageForRun({ runId }) {
   const query = useRun(runId)
   usePageTitle(query.data ? `Run #${runId} ${query.data.status}` : `Run #${runId}`)
   const stream = useRunStream(runId, query.data?.status)
@@ -198,7 +202,7 @@ function parseLog(text) {
 
 function SavedLog({ runId, step }) {
   const log = useQuery({
-    queryKey: [...keys.run(runId), 'log', step.position],
+    queryKey: keys.runLog(runId, step.position),
     queryFn: () => api.get(`/runs/${runId}/steps/${step.position}/log`),
     select: parseLog,
     staleTime: Infinity,

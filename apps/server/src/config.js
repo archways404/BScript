@@ -1,5 +1,13 @@
 import path from 'node:path'
 
+// false (default): use the connection's address. Behind a reverse proxy set true, a hop
+// count, or the proxy's addresses/CIDRs, so X-Forwarded-For is only trusted from it.
+function trustProxy(raw) {
+  if (!raw || raw === 'false') return false
+  if (raw === 'true') return true
+  return /^\d+$/.test(raw) ? Number(raw) : raw
+}
+
 function int(env, name, fallback) {
   const raw = env[name]
   if (raw === undefined || raw === '') return fallback
@@ -18,6 +26,7 @@ export function loadConfig(env = process.env) {
     production: env.NODE_ENV === 'production',
     port: int(env, 'PORT', 3000),
     host: env.HOST || '0.0.0.0',
+    trustProxy: trustProxy(env.BSCRIPT_TRUST_PROXY),
     publicUrl: env.BSCRIPT_PUBLIC_URL || `http://localhost:${int(env, 'PORT', 3000)}`,
     secretKey: env.BSCRIPT_SECRET_KEY || '',
     adminUser: env.BSCRIPT_ADMIN_USER || 'admin',

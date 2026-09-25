@@ -127,8 +127,16 @@ function PipelineEditor({ pipeline }) {
                 defaultRef={project.data.defaultBranch}
                 environments={environments.data ?? []}
                 defaultEnvironmentId={pipeline.environmentId}
-                disabled={dirty || steps.length === 0}
-                disabledReason={dirty ? 'Save your step changes first' : 'Add a step first'}
+                disabled={dirty || steps.length === 0 || !pipeline.enabled || !pipeline.triggers.manual}
+                disabledReason={
+                  !pipeline.enabled
+                    ? 'This pipeline is disabled'
+                    : !pipeline.triggers.manual
+                      ? 'Manual runs are turned off in Settings'
+                      : dirty
+                        ? 'Save your step changes first'
+                        : 'Add a step first'
+                }
               />
             )}
           </>

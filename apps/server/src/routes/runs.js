@@ -1,5 +1,6 @@
 import fs from 'node:fs'
-import { notFound } from '../http-error.js'
+import { HttpError, notFound } from '../http-error.js'
+import { getPipeline } from '../store/pipelines.js'
 import { getRun, getStepLogPath, listRuns } from '../store/runs.js'
 import { idParams } from './schemas.js'
 import { openEventStream } from './sse.js'
@@ -13,6 +14,14 @@ export default async function runRoutes(app, { queue }) {
     const run = getRun(db, id, options)
     if (!run) throw notFound('Run')
     return run
+  }
+
+  // Webhooks and cron check their own trigger; this covers the Run button, API and re-run.
+  function requireManualRuns(pipelineId) {
+    const pipeline = getPipeline(db, pipelineId)
+    if (!pipeline) throw notFound('Pipeline')
+    if (!pipeline.enabled) throw new HttpError(409, 'This pipeline is disabled')
+    if (!pipeline.triggers.manual) throw new HttpError(409, 'Manual and API runs are turned off for this pipeline')
   }
 
   function triggerFrom(request) {
@@ -38,6 +47,7 @@ export default async function runRoutes(app, { queue }) {
       },
     },
     async (request, reply) => {
+      requireManualRuns(request.params.id)
       const run = queue.enqueue({
         pipelineId: request.params.id,
         ref: request.body?.ref,
@@ -80,6 +90,7 @@ export default async function runRoutes(app, { queue }) {
   // Re-runs the exact commit when it is known, so a re-run reproduces the original.
   app.post('/api/runs/:id/rerun', { schema: { params: idParams } }, async (request, reply) => {
     const run = requireRun(request.params.id)
+    requireManualRuns(run.pipelineId)
     const next = queue.enqueue({
       pipelineId: run.pipelineId,
       ref: run.commitSha ?? run.ref,

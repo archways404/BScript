@@ -14,9 +14,19 @@ import registryRoutes from './routes/registry.js'
 import registryProxyRoutes from './routes/registry-proxy.js'
 import requirementRoutes from './routes/requirements.js'
 import runRoutes from './routes/runs.js'
+import { closeAllStreams } from './routes/sse.js'
 import tokenRoutes from './routes/tokens.js'
 import webhookRoutes from './routes/webhooks.js'
 import { verifyToken } from './store/tokens.js'
+
+function decodedPath(url) {
+  const path = url.split('?')[0]
+  try {
+    return decodeURIComponent(path)
+  } catch {
+    return path
+  }
+}
 
 const DEFAULT_WEB_DIST = path.resolve(import.meta.dirname, '../../web/dist')
 // Webhooks authenticate with the project's HMAC secret instead.
@@ -41,7 +51,8 @@ export async function buildApp({
   webDist = process.env.BSCRIPT_WEB_DIST || DEFAULT_WEB_DIST,
 }) {
   // requestTimeout 0: image layer uploads through the registry proxy can take minutes.
-  const app = Fastify({ logger, trustProxy: true, requestTimeout: 0 })
+  const app = Fastify({ logger, trustProxy: config.trustProxy, requestTimeout: 0, forceCloseConnections: true })
+  app.addHook('preClose', async () => closeAllStreams())
   app.decorate('config', config)
   app.decorate('db', db)
   app.decorate('cipher', cipher)
@@ -53,8 +64,13 @@ export async function buildApp({
   // Every /api route needs a session cookie or an API token (Authorization: Bearer bst_...),
   // except the few public ones. Routes marked sessionOnly (tokens, password) refuse tokens;
   // routes marked optionalAuth run with request.auth = null instead of getting a 401.
+  //
+  // Decided on the matched route, never the raw URL: the router decodes %-escapes, so
+  // "/%61pi/tokens" routes to /api/tokens while not starting with "/api/".
   app.addHook('onRequest', async (request, reply) => {
-    if (!request.url.startsWith('/api/') || PUBLIC_ROUTES.has(request.routeOptions.url)) return
+    const route = request.routeOptions.url
+    const isApi = decodedPath(request.url).startsWith('/api/') || route?.startsWith('/api/')
+    if (!isApi || PUBLIC_ROUTES.has(route)) return
 
     const bearer = request.headers.authorization?.match(/^Bearer (.+)$/)?.[1]
     if (bearer) {

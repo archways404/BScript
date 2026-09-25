@@ -6,7 +6,8 @@ export const keys = {
   projects: ['projects'],
   project: (id) => ['projects', id],
   pipelines: (projectId) => ['projects', projectId, 'pipelines'],
-  scripts: (projectId, ref) => ['projects', projectId, 'scripts', ref ?? ''],
+  // Not under 'projects': fetching scripts runs a git fetch, which run events must not trigger.
+  scripts: (projectId, ref) => ['scripts', projectId, ref ?? ''],
   webhook: (projectId) => ['projects', projectId, 'webhook'],
   environments: (projectId) => ['projects', projectId, 'environments'],
   requirements: (projectId) => ['requirements', projectId],
@@ -14,6 +15,8 @@ export const keys = {
   env: (scope, id) => ['env', scope, id],
   runs: (filters = {}) => ['runs', 'list', filters],
   run: (id) => ['runs', 'detail', id],
+  // Not under 'runs': a saved log never changes, so run events must not refetch it.
+  runLog: (id, position) => ['runLog', id, position],
   tokens: ['tokens'],
   registry: ['registry'],
   registryTags: (repository) => ['registry', 'tags', repository],

@@ -1,4 +1,10 @@
 const HEARTBEAT_MS = 15_000
+const open = new Set()
+
+// Ends every open stream, so server.close() isn't held up by browser tabs listening forever.
+export function closeAllStreams() {
+  for (const res of open) res.end()
+}
 
 // Takes over the raw response for Server-Sent Events. Returns send() and a close hook.
 export function openEventStream(reply) {
@@ -12,7 +18,9 @@ export function openEventStream(reply) {
   })
   const heartbeat = setInterval(() => res.write(': ping\n\n'), HEARTBEAT_MS)
   const closeHandlers = []
+  open.add(res)
   res.on('close', () => {
+    open.delete(res)
     clearInterval(heartbeat)
     for (const handler of closeHandlers) handler()
   })

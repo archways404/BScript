@@ -50,6 +50,14 @@ export function createRegistryProcess({ config, log = console }) {
   let backoff = 1000
   let restartTimer = null
   const recentLog = []
+  // start/stop/maintenance run one at a time, so a double-clicked "Turn on", or a settings
+  // save during garbage collection, can't spawn a second registry or orphan one.
+  let lifecycle = Promise.resolve()
+  const serialized = (fn) => {
+    const next = lifecycle.then(fn, fn)
+    lifecycle = next.catch(() => {})
+    return next
+  }
 
   function remember(line) {
     recentLog.push(line)
@@ -130,7 +138,10 @@ export function createRegistryProcess({ config, log = console }) {
       state = 'crashed'
       lastError = `Registry exited (${signal ?? `code ${code}`}); restarting in ${backoff / 1000}s`
       log.warn(lastError)
-      restartTimer = setTimeout(() => launch().catch((err) => log.error({ err }, 'Registry restart failed')), backoff)
+      restartTimer = setTimeout(
+        () => serialized(() => (wanted && !child ? launch() : undefined)).catch((err) => log.error({ err: err.message }, 'Registry restart failed')),
+        backoff,
+      )
       backoff = Math.min(backoff * 2, MAX_BACKOFF_MS)
     })
 
@@ -163,34 +174,40 @@ export function createRegistryProcess({ config, log = console }) {
   return {
     notifySecret,
 
-    async start() {
-      wanted = true
-      if (child) return
-      await launch().catch((err) => log.error({ err: err.message }, 'Registry failed to start'))
+    start() {
+      return serialized(async () => {
+        wanted = true
+        if (child) return
+        await launch().catch((err) => log.error({ err: err.message }, 'Registry failed to start'))
+      })
     },
 
-    async stop() {
-      wanted = false
-      await terminate()
-      if (state !== 'unavailable') state = 'stopped'
+    stop() {
+      return serialized(async () => {
+        wanted = false
+        await terminate()
+        if (state !== 'unavailable') state = 'stopped'
+      })
     },
 
     // Runs `fn` with the registry stopped: garbage collection must not race with pushes, and
     // a restart also drops any cached blob state. Pulls get 503 for the duration.
-    async whileStopped(fn) {
-      const wasWanted = wanted
-      state = 'maintenance'
-      await terminate()
-      try {
-        return await fn({ bin: config.registryBin, configFile, storageDir })
-      } finally {
-        if (wasWanted) {
-          state = 'starting'
-          await launch().catch((err) => log.error({ err: err.message }, 'Registry failed to restart after maintenance'))
-        } else {
-          state = 'stopped'
+    whileStopped(fn) {
+      return serialized(async () => {
+        state = 'maintenance'
+        await terminate()
+        try {
+          return await fn({ bin: config.registryBin, configFile, storageDir })
+        } finally {
+          // `wanted` is read now, not before: a stop() queued during maintenance runs next.
+          if (wanted) {
+            state = 'starting'
+            await launch().catch((err) => log.error({ err: err.message }, 'Registry failed to restart after maintenance'))
+          } else {
+            state = 'stopped'
+          }
         }
-      }
+      })
     },
 
     runCommand(args) {

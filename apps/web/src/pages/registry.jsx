@@ -103,7 +103,11 @@ export function RegistryPage() {
           icon={Container}
           title="The registry is off"
           description="Turn it on to push and pull images at this server's address. Stored images are kept while it's off."
-          action={<Button onClick={() => toggle.mutate(true)}>Turn on</Button>}
+          action={
+            <Button onClick={() => toggle.mutate(true)} disabled={toggle.isPending}>
+              Turn on
+            </Button>
+          }
         />
       ) : (
         <>

@@ -139,6 +139,7 @@ export function createRunQueue({ db, cipher, config, registry = null, log = cons
     entry.done = execute(run, pipeline, entry)
       .catch((err) => {
         log.error({ err, runId: run.id }, 'Run crashed')
+        db.prepare("UPDATE step_runs SET status = 'skipped' WHERE run_id = ? AND status IN ('pending', 'running')").run(run.id)
         updateRun(db, run.id, { status: 'failed', error: err.message, finishedAt: now() })
         publish(run, { type: 'run:end', status: 'failed', error: err.message })
       })
@@ -186,7 +187,11 @@ export function createRunQueue({ db, cipher, config, registry = null, log = cons
       ? await registry.prepareRun(run.id, { includeSecrets: !run.fromFork, tmpDir: runPaths(config).tmpDir })
       : { vars: [], maskValues: [], release: async () => {} }
 
-    const summary = await runPipeline({
+    // Everything after prepareRun is inside try, so the run's registry token is revoked and
+    // its credentials file removed even if setup (e.g. decrypting a secret) throws.
+    let summary
+    try {
+      summary = await runPipeline({
       runKey: run.id,
       repo: {
         url: project.repoUrl,
@@ -214,7 +219,10 @@ export function createRunQueue({ db, cipher, config, registry = null, log = cons
       paths: runPaths(config),
       signal: entry.controller.signal,
       onEvent,
-    }).finally(() => registryAccess.release())
+    })
+    } finally {
+      await registryAccess.release()
+    }
 
     db.transaction(() => {
       summary.steps.forEach((step, position) => {
@@ -264,6 +272,8 @@ export function createRunQueue({ db, cipher, config, registry = null, log = cons
       const interrupted = failInterruptedRuns(db)
       if (interrupted.length) log.warn(`Marked ${interrupted.length} interrupted run(s) as failed`)
       await fs.rm(config.workDir, { recursive: true, force: true })
+      // Run credentials (docker configs, SSH keys) left behind by a crash or SIGKILL.
+      await fs.rm(runPaths(config).tmpDir, { recursive: true, force: true })
       stopped = false
       tick()
     },

@@ -1,5 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useReducer, useState } from 'react'
+
+// Lines kept per step in the browser; the raw log link has the rest.
+const MAX_LINES_PER_STEP = 10_000
+const FLUSH_MS = 100
 import { FINISHED } from '@/lib/format'
 import { keys } from '@/lib/queries'
 
@@ -8,9 +12,14 @@ function reducer(state, action) {
     // Sent first on every (re)connect, followed by the buffered lines: start over.
     case 'snapshot':
       return { run: action.run, lines: {}, live: true }
-    case 'step:log': {
-      const current = state.lines[action.index] ?? []
-      return { ...state, lines: { ...state.lines, [action.index]: [...current, action] } }
+    // Lines arrive in batches (see flush below): one copy per batch, not per line.
+    case 'lines': {
+      const lines = { ...state.lines }
+      for (const [index, added] of Object.entries(action.byStep)) {
+        const merged = (lines[index] ?? []).concat(added)
+        lines[index] = merged.length > MAX_LINES_PER_STEP ? merged.slice(-MAX_LINES_PER_STEP) : merged
+      }
+      return { ...state, lines }
     }
     case 'step:start':
     case 'step:end': {
@@ -50,28 +59,49 @@ export function useRunStream(runId, initialStatus) {
   useEffect(() => {
     if (!follow) return
     const source = new EventSource(`/api/runs/${runId}/stream`)
+    let buffer = {}
+    const flush = () => {
+      if (Object.keys(buffer).length === 0) return
+      dispatch({ type: 'lines', byStep: buffer })
+      buffer = {}
+    }
+    const flushTimer = setInterval(flush, FLUSH_MS)
     const finish = () => {
+      flush()
       source.close()
       queryClient.invalidateQueries({ queryKey: keys.run(runId) })
     }
 
     source.addEventListener('snapshot', (e) => {
       const run = JSON.parse(e.data)
+      buffer = {}
       dispatch({ type: 'snapshot', run })
       // A finished run's stream closes right away; stop EventSource from reconnecting.
       if (FINISHED.has(run.status)) finish()
     })
-    for (const type of ['step:log', 'step:start', 'step:end', 'run:checkout']) {
-      source.addEventListener(type, (e) => dispatch(JSON.parse(e.data)))
+    source.addEventListener('step:log', (e) => {
+      const line = JSON.parse(e.data)
+      ;(buffer[line.index] ??= []).push(line)
+    })
+    // Status events flush pending lines first so output never lands after its step ended.
+    for (const type of ['step:start', 'step:end', 'run:checkout']) {
+      source.addEventListener(type, (e) => {
+        flush()
+        dispatch(JSON.parse(e.data))
+      })
     }
     // A queued run has no steps yet; reconnect once it starts to get a snapshot with them.
     source.addEventListener('run:start', () => {
+      clearInterval(flushTimer)
       source.close()
       queryClient.invalidateQueries({ queryKey: keys.run(runId) })
       setGeneration((g) => g + 1)
     })
     source.addEventListener('run:end', finish)
-    return () => source.close()
+    return () => {
+      clearInterval(flushTimer)
+      source.close()
+    }
   }, [runId, follow, generation, queryClient])
 
   return state

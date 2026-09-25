@@ -24,6 +24,7 @@ Open http://localhost:3000 and sign in as `admin`. The compose file also mounts 
 | `BSCRIPT_ALLOW_FORK_PRS` | `false` | See [Pull requests from forks](#pull-requests-from-forks). |
 | `TZ` | `UTC` | Time zone for cron schedules. |
 | `BSCRIPT_REGISTRY_ADDRESS` | public URL's host | Registry address given to clients and runs. |
+| `BSCRIPT_TRUST_PROXY` | `false` | Behind a reverse proxy: `true`, a hop count, or the proxy's IPs/CIDRs. Only then is `X-Forwarded-For` trusted for login rate limits. |
 
 ### Container registry
 

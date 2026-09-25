@@ -33,7 +33,10 @@ const ACCEPT = MANIFEST_TYPES.join(', ')
 const DISK_CACHE_MS = 60_000
 // Sent on BScript's own registry requests, so reading a manifest to size it isn't a "pull".
 const INTERNAL_AGENT = 'bscript-internal'
-const DRAIN_TIMEOUT_MS = 60_000
+const DRAIN_TIMEOUT_MS = 5 * 60_000
+// A push is many requests (blob uploads, then the manifest). Waiting for a quiet spell, not
+// just zero open requests, keeps garbage collection from sweeping a half-pushed image's blobs.
+const QUIET_MS = 10_000
 
 async function directorySize(dir) {
   let total = 0
@@ -65,7 +68,7 @@ export function createRegistryService({ db, cipher, config, log = console }) {
   const registryProcess = createRegistryProcess({ config, log })
   const auth = createRegistryAuth({ db })
   let writesInFlight = 0
-  let draining = false
+  let lastWriteAt = 0
   let cleanupRunning = false
   let diskCache = { at: 0, bytes: 0 }
   let cleanupJob = null
@@ -161,10 +164,13 @@ export function createRegistryService({ db, cipher, config, log = console }) {
     return diskCache.bytes
   }
 
-  async function drainWrites() {
-    draining = true
+  async function waitForQuiet() {
     const deadline = Date.now() + DRAIN_TIMEOUT_MS
-    while (writesInFlight > 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 200))
+    const quietMs = config.registryQuietMs ?? QUIET_MS
+    while (writesInFlight > 0 || Date.now() - lastWriteAt < quietMs) {
+      if (Date.now() > deadline) throw new Error('The registry kept receiving pushes; garbage collection skipped, try again later')
+      await new Promise((r) => setTimeout(r, 250))
+    }
   }
 
   /**
@@ -188,7 +194,7 @@ export function createRegistryService({ db, cipher, config, log = console }) {
           lines.push(`${result.ok ? 'deleted' : `failed (${result.status})`} ${result.repository}:${result.tag}`)
         }
       }
-      await drainWrites()
+      await waitForQuiet()
       const before = await directorySize(registryProcess.status().storageDir)
       const gc = await registryProcess.whileStopped(({ configFile }) => registryProcess.runCommand(['garbage-collect', configFile, '--delete-untagged']))
       const after = await directorySize(registryProcess.status().storageDir)
@@ -200,7 +206,6 @@ export function createRegistryService({ db, cipher, config, log = console }) {
       finishCleanup(db, id, { status: 'failed', deletedTags: deleted, error: err.message, log: lines.join('\n') })
       log.error({ err: err.message }, 'Registry cleanup failed')
     } finally {
-      draining = false
       cleanupRunning = false
     }
     return id
@@ -235,12 +240,12 @@ export function createRegistryService({ db, cipher, config, log = console }) {
 
     // Proxy bookkeeping, so maintenance can wait for pushes in progress.
     beginWrite() {
-      if (draining) return false
       writesInFlight++
-      return true
+      lastWriteAt = Date.now()
     },
     endWrite() {
       writesInFlight = Math.max(0, writesInFlight - 1)
+      lastWriteAt = Date.now()
     },
 
     async overview() {
