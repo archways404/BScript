@@ -35,7 +35,8 @@ export async function buildApp({
   const sessions = createSessionSigner(secretKey)
 
   // Every /api route needs a session cookie or an API token (Authorization: Bearer bst_...),
-  // except the few public ones. Routes marked sessionOnly (tokens, password) refuse tokens.
+  // except the few public ones. Routes marked sessionOnly (tokens, password) refuse tokens;
+  // routes marked optionalAuth run with request.auth = null instead of getting a 401.
   app.addHook('onRequest', async (request, reply) => {
     if (!request.url.startsWith('/api/') || PUBLIC_ROUTES.has(request.routeOptions.url)) return
 
@@ -53,6 +54,7 @@ export async function buildApp({
     const session = sessions.verify(request.cookies[SESSION_COOKIE])
     const admin = session && getAdmin(db)
     if (!session || session.user !== admin.user || session.version !== admin.sessionVersion) {
+      if (request.routeOptions.config?.optionalAuth) return
       return reply.code(401).send({ error: 'Not logged in' })
     }
     request.auth = { via: 'session', user: session.user }

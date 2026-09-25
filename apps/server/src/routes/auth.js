@@ -50,7 +50,9 @@ export default async function authRoutes(app, { sessions }) {
     return { ok: true }
   })
 
-  app.get('/api/auth/me', async (request) => request.auth)
+  // Answers "who am I" without a 401 for signed-out visitors, so the UI's first request on
+  // every page load doesn't log an error.
+  app.get('/api/auth/me', { config: { optionalAuth: true } }, async (request) => request.auth ?? { via: null })
 
   app.post(
     '/api/auth/password',

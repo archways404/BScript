@@ -145,7 +145,7 @@ Multi-stage build: `node:22-bookworm-slim` + pnpm → build web → prod deps fo
 3. ✅ **Runner core** — git mirror/checkout, local executor, logs, masking. Runnable from a CLI script with no API.
 4. ✅ **Queue** — enqueue/claim, concurrency limit, one run per pipeline, restart recovery (mark stale `running` as failed), retention pruning.
 5. ✅ **API + auth** — routes, session login, API tokens, SSE log stream.
-6. **UI** — screens 1–6.
+6. ✅ **UI** — screens 1–6.
 7. **Triggers** — GitHub webhook (push/PR, branch filter), croner scheduler.
 8. **Docker** — Dockerfile, compose example, README.
 9. **Later** — Docker executor, GitHub commit statuses, artifacts, notifications.

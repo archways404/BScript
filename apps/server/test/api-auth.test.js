@@ -7,6 +7,9 @@ test('API routes require login; health does not', async (t) => {
   assert.equal((await app.inject({ url: '/api/health' })).statusCode, 200)
   assert.equal((await app.inject({ url: '/api/projects' })).statusCode, 401)
   assert.equal((await app.inject({ url: '/api/nope' })).statusCode, 401)
+  const me = await app.inject({ url: '/api/auth/me' })
+  assert.equal(me.statusCode, 200)
+  assert.deepEqual(me.json(), { via: null })
 })
 
 test('login sets a working session cookie; wrong password is refused', async (t) => {
