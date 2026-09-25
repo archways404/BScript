@@ -100,8 +100,10 @@ PUT    /api/pipelines/:id/steps       replace ordered step list
 CRUD   /api/{projects|pipelines}/:id/env
 POST   /api/pipelines/:id/runs        manual/API trigger {ref?}
 GET    /api/runs?pipeline=&status=    GET /api/runs/:id
-POST   /api/runs/:id/cancel           GET /api/runs/:id/steps/:pos/log
-GET    /api/runs/:id/stream           SSE: step status + log lines
+POST   /api/runs/:id/cancel | /rerun  GET /api/runs/:id/steps/:pos/log
+GET    /api/runs/:id/stream           SSE: snapshot, buffered lines, then live events
+GET    /api/events                    SSE: run status changes across all pipelines
+GET    /api/projects/:id/webhook      webhook URL + secret (POST .../rotate)
 POST   /api/hooks/github/:projectId   X-Hub-Signature-256 verified
 CRUD   /api/tokens
 ```
@@ -138,11 +140,11 @@ Multi-stage build: `node:22-bookworm-slim` + pnpm → build web → prod deps fo
 
 ## Milestones
 
-1. **Scaffold** — pnpm workspaces, Fastify `/api/health`, Vite + Tailwind + shadcn (JS), dev proxy, lint/format.
-2. **DB** — better-sqlite3, migration runner, schema above, crypto helper.
-3. **Runner core** — git mirror/checkout, local executor, logs, masking. Runnable from a CLI script with no API.
-4. **Queue** — enqueue/claim, concurrency limit, one run per pipeline, restart recovery (mark stale `running` as failed), retention pruning.
-5. **API + auth** — routes, session login, API tokens, SSE log stream.
+1. ✅ **Scaffold** — pnpm workspaces, Fastify `/api/health`, Vite + Tailwind + shadcn (JS), dev proxy, lint/format.
+2. ✅ **DB** — better-sqlite3, migration runner, schema above, crypto helper.
+3. ✅ **Runner core** — git mirror/checkout, local executor, logs, masking. Runnable from a CLI script with no API.
+4. ✅ **Queue** — enqueue/claim, concurrency limit, one run per pipeline, restart recovery (mark stale `running` as failed), retention pruning.
+5. ✅ **API + auth** — routes, session login, API tokens, SSE log stream.
 6. **UI** — screens 1–6.
 7. **Triggers** — GitHub webhook (push/PR, branch filter), croner scheduler.
 8. **Docker** — Dockerfile, compose example, README.

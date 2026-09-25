@@ -6,7 +6,9 @@ See [PLAN.md](PLAN.md) for the design and milestones.
 
 ## Status
 
-The runner core works from the CLI. The API, UI screens, triggers and Docker image are next.
+The runner, run queue and REST API work (see [PLAN.md](PLAN.md#api-sketch)). UI screens, webhook/cron triggers and the Docker image are next.
+
+On first start the server creates the admin from `BSCRIPT_ADMIN_USER` / `BSCRIPT_ADMIN_PASSWORD`. If no password is set, it generates one and prints it to the log once.
 
 ## Development
 

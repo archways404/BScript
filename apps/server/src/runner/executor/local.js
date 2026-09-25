@@ -2,11 +2,13 @@ import { spawn } from 'node:child_process'
 
 const KILL_GRACE_MS = 10_000
 
+// Called from timers and exit handlers, so it must never throw. ESRCH means the group is gone;
+// macOS reports EPERM instead when the remaining members are zombies being reaped.
 function killGroup(pid, signal) {
   try {
     process.kill(-pid, signal)
   } catch (err) {
-    if (err.code !== 'ESRCH') throw err
+    if (err.code !== 'ESRCH' && err.code !== 'EPERM') console.warn(`Failed to signal process group ${pid}:`, err)
   }
 }
 
