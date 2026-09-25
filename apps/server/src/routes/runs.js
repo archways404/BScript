@@ -74,6 +74,8 @@ export default async function runRoutes(app, { queue }) {
     const next = queue.enqueue({
       pipelineId: run.pipelineId,
       ref: run.commitSha ?? run.ref,
+      branch: run.branch,
+      prNumber: run.prNumber,
       fromFork: run.fromFork,
       ...triggerFrom(request),
     })

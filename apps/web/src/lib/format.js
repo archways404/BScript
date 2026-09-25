@@ -33,3 +33,9 @@ export function shortSha(sha) {
 }
 
 export const FINISHED = new Set(['success', 'failed', 'cancelled'])
+
+// What to call a run's source: its branch, else the ref (shortened when it is a bare sha).
+export function runRefLabel(run) {
+  if (run.branch) return run.branch
+  return /^[0-9a-f]{40}$/i.test(run.ref) ? shortSha(run.ref) : run.ref
+}

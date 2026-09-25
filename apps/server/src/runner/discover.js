@@ -7,6 +7,12 @@ export function isScript(name, mode) {
   return name.endsWith('.sh') || (mode & 0o111) !== 0
 }
 
+// Files and folders starting with `_` hold helpers that steps `source` (e.g. _lib/log.sh);
+// they are never offered as steps themselves.
+export function isHelperPath(relativePath) {
+  return relativePath.split('/').some((segment) => segment.startsWith('_'))
+}
+
 // Lists scripts under <repoDir>/.BScript, recursively, as sorted POSIX paths relative to it.
 export async function discoverScripts(repoDir) {
   const root = path.join(repoDir, SCRIPTS_DIR)
@@ -21,6 +27,7 @@ export async function discoverScripts(repoDir) {
       throw err
     }
     for (const entry of entries) {
+      if (entry.name.startsWith('_')) continue
       const full = path.join(dir, entry.name)
       if (entry.isDirectory()) {
         await walk(full)

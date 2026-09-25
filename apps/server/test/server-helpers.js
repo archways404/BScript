@@ -6,6 +6,7 @@ import { loadConfig } from '../src/config.js'
 import { createCipher } from '../src/crypto.js'
 import { openDatabase } from '../src/db/index.js'
 import { createRunQueue } from '../src/runner/queue.js'
+import { createScheduler } from '../src/triggers/scheduler.js'
 import { getRun } from '../src/store/runs.js'
 import { makeRepo, tempDir } from './helpers.js'
 
@@ -26,10 +27,12 @@ export async function makeServer(t, { env = {}, scripts = { 'build.sh': 'echo bu
   const cipher = createCipher(secretKey)
   const db = openDatabase(':memory:')
   const queue = createRunQueue({ db, cipher, config, log: silent })
-  const app = await buildApp({ config, db, cipher, secretKey, queue, logger: false, webDist: '/nonexistent' })
+  const scheduler = createScheduler({ db, queue, log: silent })
+  const app = await buildApp({ config, db, cipher, secretKey, queue, scheduler, logger: false, webDist: '/nonexistent' })
   await ensureAdmin(db, config, silent)
   if (start) await queue.start()
   t.after(async () => {
+    scheduler.stop()
     await queue.stop()
     await app.close()
   })
@@ -47,7 +50,7 @@ export async function makeServer(t, { env = {}, scripts = { 'build.sh': 'echo bu
     return { status: res.statusCode, body: res.body ? safeJson(res.body) : null, raw: res }
   }
 
-  return { app, db, queue, config, cipher, repoDir, repo, cookie, api }
+  return { app, db, queue, scheduler, config, cipher, repoDir, repo, cookie, api }
 }
 
 function safeJson(text) {

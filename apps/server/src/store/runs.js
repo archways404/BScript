@@ -25,6 +25,8 @@ function toRun(row) {
     status: row.status,
     trigger: row.trigger,
     ref: row.ref,
+    branch: row.branch,
+    prNumber: row.pr_number,
     commitSha: row.commit_sha,
     fromFork: Boolean(row.from_fork),
     triggeredBy: row.triggered_by,
@@ -41,13 +43,13 @@ const SELECT_RUN = `
   JOIN pipelines p ON p.id = r.pipeline_id
   JOIN projects pr ON pr.id = p.project_id`
 
-export function createRun(db, { pipelineId, trigger, ref, fromFork = false, triggeredBy = null }) {
+export function createRun(db, { pipelineId, trigger, ref, branch = null, prNumber = null, fromFork = false, triggeredBy = null }) {
   const result = db
     .prepare(
-      `INSERT INTO runs (pipeline_id, trigger, ref, from_fork, triggered_by, queued_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO runs (pipeline_id, trigger, ref, branch, pr_number, from_fork, triggered_by, queued_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(pipelineId, trigger, ref, fromFork ? 1 : 0, triggeredBy, now())
+    .run(pipelineId, trigger, ref, branch, prNumber, fromFork ? 1 : 0, triggeredBy, now())
   return getRun(db, result.lastInsertRowid)
 }
 
@@ -77,6 +79,12 @@ export function listRuns(db, { pipelineId, projectId, status, before, limit = 50
 }
 
 // The oldest queued run whose pipeline has nothing running: one active run per pipeline.
+export function hasQueuedRun(db, pipelineId, trigger) {
+  return Boolean(
+    db.prepare("SELECT 1 FROM runs WHERE pipeline_id = ? AND trigger = ? AND status = 'queued' LIMIT 1").get(pipelineId, trigger),
+  )
+}
+
 export function nextStartableRun(db) {
   return db
     .prepare(

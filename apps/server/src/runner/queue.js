@@ -21,6 +21,10 @@ import { runPipeline } from './pipeline.js'
 // Lines kept in memory per step so a client that connects mid-run can catch up.
 const REPLAY_LINES_PER_STEP = 5000
 
+function isCommitSha(ref) {
+  return /^[0-9a-f]{40}$/i.test(ref)
+}
+
 export function mirrorDirFor(config, projectId) {
   return path.join(config.reposDir, `project-${projectId}.git`)
 }
@@ -62,15 +66,19 @@ export function createRunQueue({ db, cipher, config, log = console }) {
     }
   }
 
-  function enqueue({ pipelineId, trigger, ref, fromFork = false, triggeredBy = null }) {
+  function enqueue({ pipelineId, trigger, ref, branch, prNumber = null, fromFork = false, triggeredBy = null }) {
     const pipeline = getPipeline(db, pipelineId)
     if (!pipeline) throw new HttpError(404, 'Pipeline not found')
     if (!pipeline.steps.length) throw new HttpError(400, 'Pipeline has no steps')
     const project = getProject(db, pipeline.projectId)
+    const resolvedRef = ref || project.defaultBranch
     const run = createRun(db, {
       pipelineId,
       trigger,
-      ref: ref || project.defaultBranch,
+      ref: resolvedRef,
+      // A branch name given as the ref is the branch; a commit sha says nothing about one.
+      branch: branch ?? (isCommitSha(resolvedRef) ? null : resolvedRef.replace(/^refs\/heads\//, '')),
+      prNumber,
       fromFork,
       triggeredBy,
     })
@@ -121,7 +129,6 @@ export function createRunQueue({ db, cipher, config, log = console }) {
 
   async function execute(run, pipeline, entry) {
     const project = getProject(db, pipeline.projectId)
-    const isSha = /^[0-9a-f]{40}$/i.test(run.ref)
 
     function onEvent(event) {
       switch (event.type) {
@@ -171,7 +178,8 @@ export function createRunQueue({ db, cipher, config, log = console }) {
         project: project.name,
         pipeline: pipeline.name,
         trigger: run.trigger,
-        branch: isSha ? undefined : run.ref.replace(/^refs\/heads\//, ''),
+        branch: run.branch ?? undefined,
+        prNumber: run.prNumber ?? undefined,
       },
       paths: runPaths(config),
       signal: entry.controller.signal,

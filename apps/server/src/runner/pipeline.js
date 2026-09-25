@@ -88,6 +88,7 @@ export async function runPipeline({
           BSCRIPT_TRIGGER: meta.trigger,
           BSCRIPT_REF: ref,
           BSCRIPT_BRANCH: meta.branch,
+          BSCRIPT_PR_NUMBER: meta.prNumber,
           BSCRIPT_COMMIT_SHA: summary.commitSha,
           BSCRIPT_WORKSPACE: workspaceDir,
           BSCRIPT_STEP_NAME: result.name,

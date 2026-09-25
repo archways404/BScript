@@ -29,6 +29,8 @@ test('discovers scripts recursively, from a checkout and from the mirror', async
     'deploy/prod.sh': 'echo prod',
     'tools/run': '#!/bin/bash\necho exec',
     'notes.txt': 'not a script',
+    '_lib/log.sh': 'log() { echo "$@"; }',
+    'deploy/_helpers.sh': '',
   })
   assert.deepEqual(await discoverScripts(ctx.repoDir), ['build.sh', 'deploy/prod.sh', 'tools/run'])
   await syncMirror({ ...ctx.repo, tmpDir: ctx.paths.tmpDir })

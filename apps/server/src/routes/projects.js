@@ -33,7 +33,7 @@ export function hasRunningRun(db, where, id) {
   )
 }
 
-export default async function projectRoutes(app) {
+export default async function projectRoutes(app, { scheduler }) {
   const { db, cipher, config } = app
 
   function requireProject(id) {
@@ -96,6 +96,7 @@ export default async function projectRoutes(app) {
     const runIds = deleteProject(db, request.params.id)
     await removeRunLogs(config, runIds)
     await fs.rm(mirrorDirFor(config, request.params.id), { recursive: true, force: true })
+    scheduler?.sync()
     return reply.code(204).send()
   })
 

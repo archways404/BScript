@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
+import { timeAgo } from '@/lib/format'
 import { keys, usePipeline, useProject, useRuns, useScripts } from '@/lib/queries'
 import { NotFoundPage } from '@/pages/not-found'
 
@@ -254,6 +255,11 @@ function PipelineSettings({ pipeline, onSaved }) {
                 className="font-mono"
                 placeholder="0 3 * * *"
               />
+              <p className="text-muted-foreground text-xs">
+                {pipeline.nextRunAt && pipeline.cronExpr === (form.cronExpr || null)
+                  ? `Next run ${timeAgo(pipeline.nextRunAt)} (${new Date(pipeline.nextRunAt).toLocaleString()}), server time zone.`
+                  : 'Minute hour day month weekday, in the server time zone. Save to schedule.'}
+              </p>
             </div>
           )}
           <Button type="submit" variant="secondary" disabled={save.isPending}>

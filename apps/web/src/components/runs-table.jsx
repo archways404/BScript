@@ -4,7 +4,7 @@ import { EmptyState } from '@/components/empty-state'
 import { StatusIcon } from '@/components/status'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useNow } from '@/hooks/use-now'
-import { duration, shortSha, timeAgo } from '@/lib/format'
+import { duration, runRefLabel, shortSha, timeAgo } from '@/lib/format'
 
 const TRIGGER_LABEL = { manual: 'Manual', push: 'Push', pull_request: 'Pull request', cron: 'Schedule', api: 'API' }
 
@@ -48,7 +48,8 @@ export function RunsTable({ runs, isPending, showPipeline = true, emptyAction })
               {showPipeline && <span className="text-muted-foreground text-xs">#{run.id}</span>}
             </div>
             <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 text-xs">
-              <span className="font-mono">{run.ref.length === 40 ? shortSha(run.ref) : run.ref}</span>
+              <span className="font-mono">{runRefLabel(run)}</span>
+              {run.prNumber && <span>PR #{run.prNumber}</span>}
               {run.commitSha && (
                 <span className="flex items-center gap-1 font-mono">
                   <GitCommitHorizontal className="size-3" />

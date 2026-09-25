@@ -1,0 +1,8 @@
+.git
+.claude
+.env
+.pnpm-store
+**/node_modules
+**/.data
+apps/web/dist
+*.log

@@ -1,0 +1,22 @@
+# docker compose up -d   (reads .env next to this file)
+services:
+  bscript:
+    build: .
+    image: bscript
+    ports:
+      - "3000:3000"
+    environment:
+      BSCRIPT_SECRET_KEY: ${BSCRIPT_SECRET_KEY:?Set BSCRIPT_SECRET_KEY in .env, e.g. openssl rand -hex 32}
+      BSCRIPT_ADMIN_USER: ${BSCRIPT_ADMIN_USER:-admin}
+      BSCRIPT_ADMIN_PASSWORD: ${BSCRIPT_ADMIN_PASSWORD:-}
+      BSCRIPT_PUBLIC_URL: ${BSCRIPT_PUBLIC_URL:-http://localhost:3000}
+      MAX_CONCURRENT_RUNS: ${MAX_CONCURRENT_RUNS:-2}
+      RUN_RETENTION: ${RUN_RETENTION:-50}
+      BSCRIPT_ALLOW_FORK_PRS: ${BSCRIPT_ALLOW_FORK_PRS:-false}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - bscript-data:/data
+    restart: unless-stopped
+
+volumes:
+  bscript-data:

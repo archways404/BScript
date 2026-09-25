@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { SCRIPTS_DIR, isScript } from './discover.js'
+import { SCRIPTS_DIR, isHelperPath, isScript } from './discover.js'
 
 const mirrorLocks = new Map()
 
@@ -159,5 +159,6 @@ export async function listScriptsAtCommit(mirrorDir, sha) {
     })
     .filter(({ type, file, mode }) => type === 'blob' && isScript(path.posix.basename(file), mode))
     .map(({ file }) => file.slice(SCRIPTS_DIR.length + 1))
+    .filter((file) => !isHelperPath(file))
     .sort()
 }

@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useNow } from '@/hooks/use-now'
 import { useRunStream } from '@/hooks/use-run-stream'
 import { api } from '@/lib/api'
-import { duration, FINISHED, shortSha, timeAgo } from '@/lib/format'
+import { duration, FINISHED, runRefLabel, shortSha, timeAgo } from '@/lib/format'
 import { keys, useRun } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 import { NotFoundPage } from '@/pages/not-found'
@@ -67,8 +67,9 @@ function RunView({ run, lines }) {
           <span className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
             <span className="flex items-center gap-1.5 font-mono">
               <GitBranch className="size-3.5" />
-              {run.ref.length === 40 ? shortSha(run.ref) : run.ref}
+              {runRefLabel(run)}
             </span>
+            {run.prNumber && <span>PR #{run.prNumber}</span>}
             {run.commitSha && (
               <span className="flex items-center gap-1.5 font-mono">
                 <GitCommitHorizontal className="size-3.5" />

@@ -24,6 +24,8 @@ export function loadConfig(env = process.env) {
     adminPassword: env.BSCRIPT_ADMIN_PASSWORD || '',
     maxConcurrentRuns: int(env, 'MAX_CONCURRENT_RUNS', 2),
     runRetention: int(env, 'RUN_RETENTION', 50),
+    // Fork PRs run untrusted code inside this container; opt in only if you accept that.
+    allowForkPrs: env.BSCRIPT_ALLOW_FORK_PRS === 'true',
     dataDir,
     dbPath: path.join(dataDir, 'bscript.db'),
     reposDir: path.join(dataDir, 'repos'),

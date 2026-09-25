@@ -9,6 +9,7 @@ import {
   replaceSteps,
   updatePipeline,
 } from '../store/pipelines.js'
+import { cronError } from '../triggers/scheduler.js'
 import { hasRunningRun } from './projects.js'
 import { idParams, name } from './schemas.js'
 
@@ -49,8 +50,18 @@ function checkScriptPaths(steps) {
   }
 }
 
-export default async function pipelineRoutes(app) {
+// The cron expression must be valid whenever it is set, and present whenever cron is on.
+function checkSchedule(triggers, cronExpr) {
+  if (cronExpr) {
+    const error = cronError(cronExpr)
+    if (error) throw new HttpError(400, `Invalid cron expression: ${error}`)
+  }
+  if (triggers.cron && !cronExpr) throw new HttpError(400, 'Set a cron expression to enable the schedule trigger')
+}
+
+export default async function pipelineRoutes(app, { scheduler }) {
   const { db, config } = app
+  const withSchedule = (pipeline) => pipeline && { ...pipeline, nextRunAt: scheduler?.nextRunAt(pipeline.id) ?? null }
 
   function requirePipeline(id) {
     const pipeline = getPipeline(db, id)
@@ -60,7 +71,7 @@ export default async function pipelineRoutes(app) {
 
   app.get('/api/projects/:id/pipelines', { schema: { params: idParams } }, async (request) => {
     if (!getProject(db, request.params.id)) throw notFound('Project')
-    return listPipelines(db, request.params.id)
+    return listPipelines(db, request.params.id).map(withSchedule)
   })
 
   app.post(
@@ -79,12 +90,15 @@ export default async function pipelineRoutes(app) {
     async (request, reply) => {
       if (!getProject(db, request.params.id)) throw notFound('Project')
       checkScriptPaths(request.body.steps ?? [])
-      return reply.code(201).send(createPipeline(db, request.params.id, request.body))
+      checkSchedule(request.body.triggers ?? {}, request.body.cronExpr)
+      const pipeline = createPipeline(db, request.params.id, request.body)
+      scheduler?.sync()
+      return reply.code(201).send(withSchedule(pipeline))
     },
   )
 
   app.get('/api/pipelines/:id', { schema: { params: idParams } }, async (request) =>
-    requirePipeline(request.params.id),
+    withSchedule(requirePipeline(request.params.id)),
   )
 
   app.patch(
@@ -96,8 +110,14 @@ export default async function pipelineRoutes(app) {
       },
     },
     async (request) => {
-      requirePipeline(request.params.id)
-      return updatePipeline(db, request.params.id, request.body)
+      const current = requirePipeline(request.params.id)
+      checkSchedule(
+        { ...current.triggers, ...request.body.triggers },
+        request.body.cronExpr === undefined ? current.cronExpr : request.body.cronExpr,
+      )
+      const pipeline = updatePipeline(db, request.params.id, request.body)
+      scheduler?.sync()
+      return withSchedule(pipeline)
     },
   )
 
@@ -122,6 +142,7 @@ export default async function pipelineRoutes(app) {
       throw new HttpError(409, 'Cancel the running run before deleting this pipeline')
     }
     await removeRunLogs(config, deletePipeline(db, request.params.id))
+    scheduler?.sync()
     return reply.code(204).send()
   })
 }

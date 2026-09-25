@@ -282,7 +282,8 @@ function WebhookCard({ projectId }) {
         <CardTitle>GitHub webhook</CardTitle>
         <CardDescription>
           Add this in the repository's Settings → Webhooks, content type <code className="font-mono">application/json</code>,
-          for push and pull request events.
+          for push and pull request events. Turn on the matching triggers in each pipeline. Pull requests from forks
+          are ignored unless the server sets <code className="font-mono">BSCRIPT_ALLOW_FORK_PRS=true</code>.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
