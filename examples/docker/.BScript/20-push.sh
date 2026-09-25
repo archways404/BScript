@@ -6,7 +6,7 @@
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_lib/log.sh"
 
-require docker
+require_docker
 require_env IMAGE REGISTRY REGISTRY_USER REGISTRY_PASSWORD
 
 if [ -n "${BSCRIPT_PR_NUMBER:-}" ]; then

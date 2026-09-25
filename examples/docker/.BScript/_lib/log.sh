@@ -8,6 +8,14 @@ die() {
   exit 1
 }
 require() { command -v "$1" >/dev/null 2>&1 || die "$1 is not installed on this runner"; }
+
+# The docker CLI alone isn't enough: it needs a daemon (the host's, via the socket that
+# docker-compose.yml mounts, or DOCKER_HOST).
+require_docker() {
+  require docker
+  docker info >/dev/null 2>&1 ||
+    die "docker can't reach a Docker daemon. Mount /var/run/docker.sock into the BScript container (see docker-compose.yml) or set DOCKER_HOST."
+}
 require_env() {
   for name in "$@"; do
     [ -n "${!name:-}" ] || die "$name is not set. Add it under the project or pipeline environment."

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Needs the docker CLI and a daemon on the runner (see examples/README.md).
+# Uses the Docker daemon the BScript container is connected to (see examples/README.md).
 #
 # @env IMAGE  Image name without tag, e.g. ghcr.io/acme/web
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_lib/log.sh"
 
-require docker
+require_docker
 require_env IMAGE
 tag="$IMAGE:${BSCRIPT_COMMIT_SHA:0:12}"
 

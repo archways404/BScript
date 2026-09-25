@@ -12,7 +12,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Open http://localhost:3000 and sign in as `admin`. Data lives in the `bscript-data` volume. Back it up: it holds the database, and without `BSCRIPT_SECRET_KEY` the stored secrets can't be decrypted.
+Open http://localhost:3000 and sign in as `admin`. The compose file also mounts the host's Docker socket so pipelines can build images; remove that line if you don't need it (anything using the socket is effectively root on the host). Data lives in the `bscript-data` volume. Back it up: it holds the database, and without `BSCRIPT_SECRET_KEY` the stored secrets can't be decrypted.
 
 | Variable | Default | |
 |---|---|---|

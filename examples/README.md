@@ -5,7 +5,7 @@ Copy one of these `.BScript/` folders into the root of your repository, commit i
 | Example | Steps | Needs |
 |---|---|---|
 | [node](node/.BScript) | install → lint → test → build | Node (in the stock image) |
-| [docker](docker/.BScript) | build image → push image | docker CLI + daemon on the runner |
+| [docker](docker/.BScript) | build image → push image | the host's Docker socket (mounted by `docker-compose.yml`) |
 | [deploy-ssh](deploy-ssh/.BScript) | `deploy/staging.sh`, `deploy/production.sh` | ssh + tar (in the stock image) |
 
 BScript's own [`.BScript/`](../.BScript) is a working example too: install → test → build.
@@ -86,7 +86,7 @@ Put code that steps `source` in a path starting with `_`, such as `.BScript/_lib
 
 ### Tools on the runner
 
-Steps run inside the BScript container. The stock image has `bash`, `git`, `node` (with `corepack` for pnpm/yarn), `python3`, `build-essential` (for native npm modules), `curl`, `jq`, `ssh`, `tar` and `ca-certificates`. For anything else, build your own image on top of it:
+Steps run inside the BScript container. The stock image has `bash`, `git`, `node` (with `corepack` for pnpm/yarn), `python3`, `build-essential` (for native npm modules), `docker` with `buildx`, `curl`, `jq`, `ssh`, `tar` and `ca-certificates`. For anything else, build your own image on top of it:
 
 ```dockerfile
 FROM bscript
@@ -96,4 +96,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends rsync \
 USER bscript
 ```
 
-The docker example also needs the docker CLI in the image, plus access to a daemon, for example by mounting `/var/run/docker.sock`. Anything with access to that socket effectively has root on the host.
+`docker` talks to the host's Docker daemon through `/var/run/docker.sock`, which `docker-compose.yml` mounts. Anything with access to that socket effectively has root on the host, so only run pipelines you trust, or remove the mount if you don't build images. Because the daemon runs on the host:
+
+- `docker build .` works as usual: the CLI sends the build context from the workspace.
+- `docker run -v "$PWD":/src …` mounts a path *on the host*, not the workspace inside BScript. Copy files into the image instead.
+- Images you build stay in the host's Docker. Push them to `$BSCRIPT_REGISTRY` or clean up with `docker image prune`.

@@ -16,6 +16,10 @@ services:
       TZ: ${TZ:-UTC}
     volumes:
       - bscript-data:/data
+      # Lets pipeline scripts build and push images with the host's Docker. Anything that can
+      # use this socket is effectively root on the host, so only run pipelines you trust.
+      # Remove this line if your pipelines don't need Docker.
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
 volumes:

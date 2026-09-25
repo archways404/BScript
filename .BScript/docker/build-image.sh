@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Builds the BScript image tagged with the commit. Needs the docker CLI and a daemon, which
-# the stock BScript image does not include: run this on a runner image that adds them.
+# Builds the BScript image tagged with the commit, using the host's Docker daemon (the
+# BScript image has the CLI; docker-compose.yml mounts the daemon's socket).
 #
 # @env IMAGE_NAME optional  Image name without tag (default: bscript)
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../_lib/common.sh"
 
-require docker
+require_docker
 tag="${IMAGE_NAME:-bscript}:${BSCRIPT_COMMIT_SHA:0:12}"
 
 section "Building $tag"
