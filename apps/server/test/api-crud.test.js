@@ -40,7 +40,7 @@ test('scripts endpoint lists .BScript scripts from the repo', async (t) => {
   assert.equal((await api('GET', `/api/projects/${project.id}/scripts?ref=nope`)).status, 502)
 })
 
-test('pipelines: create with steps, reorder, reject path traversal', async (t) => {
+test('pipelines: create with steps, reorder, reject path traversal and duplicate steps', async (t) => {
   const { api, repoDir } = await makeServer(t)
   const project = (await api('POST', '/api/projects', { name: 'demo', repoUrl: repoDir })).body
   const created = await api('POST', `/api/projects/${project.id}/pipelines`, {
@@ -60,6 +60,10 @@ test('pipelines: create with steps, reorder, reject path traversal', async (t) =
 
   const traversal = await api('PUT', `/api/pipelines/${created.body.id}/steps`, [{ scriptPath: '../evil.sh' }])
   assert.equal(traversal.status, 400)
+
+  const duplicate = await api('PUT', `/api/pipelines/${created.body.id}/steps`, [{ scriptPath: 'a.sh' }, { scriptPath: 'a.sh' }])
+  assert.equal(duplicate.status, 400)
+  assert.match(duplicate.body.error, /already a step/)
 })
 
 test('env vars: secret values are write-only and BSCRIPT_ names are reserved', async (t) => {

@@ -39,3 +39,23 @@ export function runRefLabel(run) {
   if (run.branch) return run.branch
   return /^[0-9a-f]{40}$/i.test(run.ref) ? shortSha(run.ref) : run.ref
 }
+
+export function plural(count, word, many = `${word}s`) {
+  return `${count} ${count === 1 ? word : many}`
+}
+
+export function bytes(value) {
+  if (value == null) return '—'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let n = value
+  let unit = 0
+  while (n >= 1000 && unit < units.length - 1) {
+    n /= 1000
+    unit++
+  }
+  return `${n >= 100 || unit === 0 ? Math.round(n) : n.toFixed(1)} ${units[unit]}`
+}
+
+export function shortDigest(digest) {
+  return digest ? digest.replace(/^sha256:/, '').slice(0, 12) : null
+}

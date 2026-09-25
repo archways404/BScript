@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 
 export const keys = {
@@ -15,6 +15,11 @@ export const keys = {
   runs: (filters = {}) => ['runs', 'list', filters],
   run: (id) => ['runs', 'detail', id],
   tokens: ['tokens'],
+  registry: ['registry'],
+  registryTags: (repository) => ['registry', 'tags', repository],
+  cleanups: ['registry', 'cleanups'],
+  cleanupPreview: ['registry', 'preview'],
+  externalRegistries: ['registries'],
 }
 
 function toQuery(params) {
@@ -59,6 +64,18 @@ export function useRuns(filters = {}) {
   return useQuery({ queryKey: keys.runs(filters), queryFn: () => api.get(`/runs${toQuery(filters)}`) })
 }
 
+const RUN_PAGE = 50
+
+// Runs newest first, 50 at a time; fetchNextPage() loads older ones.
+export function useRunPages(filters = {}) {
+  return useInfiniteQuery({
+    queryKey: keys.runs({ ...filters, paged: true }),
+    queryFn: ({ pageParam }) => api.get(`/runs${toQuery({ ...filters, limit: RUN_PAGE, before: pageParam })}`),
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => (lastPage.length === RUN_PAGE ? lastPage.at(-1).id : undefined),
+  })
+}
+
 export const useRun = (id) => useQuery({ queryKey: keys.run(id), queryFn: () => api.get(`/runs/${id}`) })
 
 export const useEnvironments = (projectId) =>
@@ -76,3 +93,29 @@ export function useRequirements(projectId, pipelineId, steps) {
     retry: false,
   })
 }
+
+const BUSY_STATES = new Set(['starting', 'maintenance', 'crashed'])
+
+export function useRegistry() {
+  return useQuery({
+    queryKey: keys.registry,
+    queryFn: () => api.get('/registry'),
+    refetchInterval: (query) => (query.state.data && (query.state.data.cleanupRunning || BUSY_STATES.has(query.state.data.state)) ? 2000 : false),
+  })
+}
+
+export const useRegistryTags = (repository, enabled = true) =>
+  useQuery({ queryKey: keys.registryTags(repository), queryFn: () => api.get(`/registry/tags?repository=${encodeURIComponent(repository)}`), enabled })
+
+export function useCleanups() {
+  return useQuery({
+    queryKey: keys.cleanups,
+    queryFn: () => api.get('/registry/cleanups'),
+    refetchInterval: (query) => (query.state.data?.[0]?.status === 'running' ? 2000 : false),
+  })
+}
+
+export const useCleanupPreview = (enabled) =>
+  useQuery({ queryKey: keys.cleanupPreview, queryFn: () => api.get('/registry/cleanup/preview'), enabled })
+
+export const useExternalRegistries = () => useQuery({ queryKey: keys.externalRegistries, queryFn: () => api.get('/registries') })

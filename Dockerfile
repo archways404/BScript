@@ -1,6 +1,10 @@
 # syntax=docker/dockerfile:1
 # BScript: API, runner and web UI in one image. Data (SQLite, git mirrors, logs) lives in /data.
 ARG NODE_VERSION=22
+ARG REGISTRY_VERSION=3.1.2
+
+# The bundled image registry (CNCF Distribution): a static binary, copied as is.
+FROM registry:${REGISTRY_VERSION} AS registry
 
 FROM node:${NODE_VERSION}-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
@@ -32,6 +36,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && corepack enable \
  && useradd --create-home --uid 10001 --shell /bin/bash bscript \
  && mkdir -p /data && chown bscript:bscript /data
+
+COPY --from=registry /bin/registry /usr/local/bin/registry
 
 WORKDIR /app
 COPY --from=server-deps /app/node_modules node_modules

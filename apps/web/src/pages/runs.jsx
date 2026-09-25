@@ -1,15 +1,15 @@
 import { useSearchParams } from 'react-router'
 import { PageHeader } from '@/components/page-header'
-import { RunsTable } from '@/components/runs-table'
+import { PagedRuns } from '@/components/paged-runs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useRuns } from '@/lib/queries'
+import { usePageTitle } from '@/hooks/use-page-title'
 
 const STATUSES = ['queued', 'running', 'success', 'failed', 'cancelled']
 
 export function RunsPage() {
   const [params, setParams] = useSearchParams()
   const status = params.get('status') ?? 'all'
-  const runs = useRuns({ limit: 100, status: status === 'all' ? undefined : status })
+  usePageTitle('Runs')
 
   return (
     <>
@@ -32,7 +32,7 @@ export function RunsPage() {
           </Select>
         }
       />
-      <RunsTable runs={runs.data} isPending={runs.isPending} />
+      <PagedRuns filters={{ status: status === 'all' ? undefined : status }} />
     </>
   )
 }

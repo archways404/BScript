@@ -42,6 +42,9 @@ npm test
 | `BSCRIPT_BRANCH` | `main`, `feature/login` | The PR's head branch for pull requests. Empty when a run was started from a bare commit. |
 | `BSCRIPT_PR_NUMBER` | `17` | Pull request runs only. |
 | `BSCRIPT_ENVIRONMENT` | `production` | Empty when the run has no environment. |
+| `BSCRIPT_REGISTRY` | `ci.example.com` | Address of BScript's built-in registry, when it's on. |
+| `BSCRIPT_REGISTRY_USER`, `BSCRIPT_REGISTRY_PASSWORD` | `bscript-run`, `***` | Credentials for it, valid only while the run lasts. |
+| `DOCKER_CONFIG` | `/data/tmp/run-42-docker` | A Docker `config.json` with credentials for the built-in registry and every external registry from Settings, so `docker push`/`pull` need no `docker login`. |
 | `BSCRIPT_COMMIT_SHA` | `9f2c…` | Full 40-character sha. |
 | `BSCRIPT_WORKSPACE` | `/data/work/42` | Same as the working directory. |
 | `BSCRIPT_STEP_NAME`, `BSCRIPT_STEP_INDEX` | `Test`, `1` | Index starts at 0. |
@@ -59,6 +62,17 @@ List them in a comment, anywhere in the script or in a helper it sources:
 The format is `# @env NAME`, then optional `secret` / `optional` flags, then a description. The pipeline editor turns these into a checklist showing where each variable is set, with an **Add** button that pre-marks secrets. If a required variable is missing when a run starts, the run stops before the first step and names what's missing. Steps marked **Allow failure** aren't checked.
 
 Undeclared variables are guessed from the script: `require_env A B` and `${A:?}` count as required, `${A:-default}` as optional, and any other `$UPPER_CASE` the script reads as possibly needed. Guesses show in the checklist but never block a run, because the code that reads them may never execute.
+
+### Images and registries
+
+With the built-in registry on, a run can build and push without logging in:
+
+```bash
+image="$BSCRIPT_REGISTRY/team/app:${BSCRIPT_COMMIT_SHA:0:12}"
+docker build -t "$image" . && docker push "$image"
+```
+
+External registries added under **Settings → External registries** go into the same `DOCKER_CONFIG`. Registry credentials are withheld from fork pull request runs, like other secrets.
 
 ### Secrets
 

@@ -31,10 +31,14 @@ function toPipeline(row, steps) {
 }
 
 export function listPipelines(db, projectId) {
+  const lastRun = db.prepare('SELECT id, status, queued_at FROM runs WHERE pipeline_id = ? ORDER BY id DESC LIMIT 1')
   return db
     .prepare('SELECT * FROM pipelines WHERE project_id = ? ORDER BY name COLLATE NOCASE')
     .all(projectId)
-    .map((row) => toPipeline(row))
+    .map((row) => {
+      const run = lastRun.get(row.id)
+      return { ...toPipeline(row), lastRun: run ? { id: run.id, status: run.status, queuedAt: iso(run.queued_at) } : null }
+    })
 }
 
 export function getSteps(db, pipelineId) {

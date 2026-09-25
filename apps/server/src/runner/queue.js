@@ -54,7 +54,7 @@ export async function removeRunLogs(config, runIds) {
  *   `run:<id>`  every runner event for that run (for the live log stream)
  *   `run`       { runId, pipelineId, status } whenever a run changes state (for lists)
  */
-export function createRunQueue({ db, cipher, config, log = console }) {
+export function createRunQueue({ db, cipher, config, registry = null, log = console }) {
   const events = new EventEmitter()
   events.setMaxListeners(0)
   const active = new Map()
@@ -181,6 +181,11 @@ export function createRunQueue({ db, cipher, config, log = console }) {
       publish(run, event)
     }
 
+    // Registry credentials come first so a user-set DOCKER_CONFIG still wins.
+    const registryAccess = registry
+      ? await registry.prepareRun(run.id, { includeSecrets: !run.fromFork, tmpDir: runPaths(config).tmpDir })
+      : { vars: [], maskValues: [], release: async () => {} }
+
     const summary = await runPipeline({
       runKey: run.id,
       repo: {
@@ -195,7 +200,8 @@ export function createRunQueue({ db, cipher, config, log = console }) {
         continueOnError: step.continueOnError,
         timeoutSec: step.timeoutSec,
       })),
-      vars: resolveRunEnv(db, cipher, project.id, pipeline.id, run.environmentId),
+      vars: [...registryAccess.vars, ...resolveRunEnv(db, cipher, project.id, pipeline.id, run.environmentId)],
+      maskValues: registryAccess.maskValues,
       includeSecrets: !run.fromFork,
       meta: {
         project: project.name,
@@ -208,7 +214,7 @@ export function createRunQueue({ db, cipher, config, log = console }) {
       paths: runPaths(config),
       signal: entry.controller.signal,
       onEvent,
-    })
+    }).finally(() => registryAccess.release())
 
     db.transaction(() => {
       summary.steps.forEach((step, position) => {

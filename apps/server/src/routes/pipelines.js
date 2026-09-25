@@ -51,11 +51,15 @@ function checkEnvironment(db, projectId, environmentId) {
   }
 }
 
+// Each script runs at most once per pipeline.
 function checkScriptPaths(steps) {
+  const seen = new Set()
   for (const step of steps) {
     if (step.scriptPath.startsWith('/') || step.scriptPath.split('/').includes('..')) {
       throw new HttpError(400, `Invalid script path "${step.scriptPath}"`)
     }
+    if (seen.has(step.scriptPath)) throw new HttpError(400, `"${step.scriptPath}" is already a step in this pipeline`)
+    seen.add(step.scriptPath)
   }
 }
 

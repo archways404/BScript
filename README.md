@@ -2,7 +2,7 @@
 
 Self-hosted CI for bash. Put your scripts in a `.BScript/` folder in your repo. In the BScript UI, choose which scripts run, in what order, and with which env vars. BScript clones the repo and runs them: on a button press, on a GitHub push or pull request, on a schedule, or from an API call.
 
-It ships as one Docker image: web UI, API, runner and SQLite.
+It ships as one Docker image: web UI, API, runner, SQLite and a container registry.
 
 ## Run it
 
@@ -23,6 +23,22 @@ Open http://localhost:3000 and sign in as `admin`. Data lives in the `bscript-da
 | `RUN_RETENTION` | `50` | Finished runs kept per pipeline; older runs and their logs are deleted. |
 | `BSCRIPT_ALLOW_FORK_PRS` | `false` | See [Pull requests from forks](#pull-requests-from-forks). |
 | `TZ` | `UTC` | Time zone for cron schedules. |
+| `BSCRIPT_REGISTRY_ADDRESS` | public URL's host | Registry address given to clients and runs. |
+
+### Container registry
+
+BScript includes a Docker/OCI registry (the CNCF Distribution `registry`), served at `/v2/` on the same address. Kubernetes can pull from it too.
+
+```sh
+docker login localhost:3000                  # admin password, or any user + an API token
+docker push localhost:3000/team/app:1.0
+```
+
+- **Registry** page: repositories and tags with size, push time and last pull; delete tags or whole repositories.
+- **Cleanup**: keep the newest N tags, delete tags older than D days, and never delete protected tags (e.g. `latest, v*`), with per-repository rules. Preview what a cleanup removes, run it on demand or on a schedule. Each cleanup ends with garbage collection, which frees the disk space and pauses the registry for a moment.
+- **Pipelines** get short-lived registry credentials and a `DOCKER_CONFIG`; see [examples/README.md](examples/README.md#images-and-registries).
+- **External registries** (Docker Hub, GHCR, …) are added under Settings, with a connection test, and are given to runs the same way.
+- Docker only uses plain HTTP for `localhost`. Anywhere else, put BScript behind a TLS reverse proxy, or add it to the daemon's `insecure-registries`. `BSCRIPT_REGISTRY_ADDRESS` overrides the address shown to clients and given to runs.
 
 ### Admin password
 

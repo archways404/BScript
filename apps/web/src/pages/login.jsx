@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { usePageTitle } from '@/hooks/use-page-title'
 import { api } from '@/lib/api'
 import { keys } from '@/lib/queries'
 
 export function LoginPage() {
+  usePageTitle('Sign in')
   const queryClient = useQueryClient()
   const [error, setError] = useState(null)
   const [pending, setPending] = useState(false)

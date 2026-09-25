@@ -10,6 +10,8 @@ import envRoutes from './routes/env.js'
 import environmentRoutes from './routes/environments.js'
 import pipelineRoutes from './routes/pipelines.js'
 import projectRoutes from './routes/projects.js'
+import registryRoutes from './routes/registry.js'
+import registryProxyRoutes from './routes/registry-proxy.js'
 import requirementRoutes from './routes/requirements.js'
 import runRoutes from './routes/runs.js'
 import tokenRoutes from './routes/tokens.js'
@@ -18,7 +20,14 @@ import { verifyToken } from './store/tokens.js'
 
 const DEFAULT_WEB_DIST = path.resolve(import.meta.dirname, '../../web/dist')
 // Webhooks authenticate with the project's HMAC secret instead.
-const PUBLIC_ROUTES = new Set(['/api/health', '/api/auth/login', '/api/auth/logout', '/api/hooks/github/:id'])
+const PUBLIC_ROUTES = new Set([
+  '/api/health',
+  '/api/auth/login',
+  '/api/auth/logout',
+  '/api/hooks/github/:id',
+  // Authenticated by the registry process's per-start secret.
+  '/api/internal/registry/events',
+])
 
 export async function buildApp({
   config,
@@ -27,10 +36,12 @@ export async function buildApp({
   secretKey,
   queue,
   scheduler = null,
+  registry = null,
   logger = true,
   webDist = process.env.BSCRIPT_WEB_DIST || DEFAULT_WEB_DIST,
 }) {
-  const app = Fastify({ logger, trustProxy: true })
+  // requestTimeout 0: image layer uploads through the registry proxy can take minutes.
+  const app = Fastify({ logger, trustProxy: true, requestTimeout: 0 })
   app.decorate('config', config)
   app.decorate('db', db)
   app.decorate('cipher', cipher)
@@ -88,6 +99,10 @@ export async function buildApp({
   await app.register(runRoutes, { queue })
   await app.register(tokenRoutes)
   await app.register(webhookRoutes, { queue })
+  if (registry) {
+    await app.register(registryRoutes, { registry })
+    await app.register(registryProxyRoutes, { registry })
+  }
 
   // Serve the built UI when it exists; in development Vite serves it and proxies /api here.
   const hasUi = fs.existsSync(path.join(webDist, 'index.html'))

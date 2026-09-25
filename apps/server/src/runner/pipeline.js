@@ -53,6 +53,8 @@ export async function runPipeline({
   ref,
   steps,
   vars = [],
+  // Extra values to hide in logs that aren't env vars (e.g. registry passwords in config.json).
+  maskValues = [],
   includeSecrets = true,
   meta = {},
   paths,
@@ -121,7 +123,7 @@ export async function runPipeline({
 
       const log = createStepLog({
         file: result.logPath,
-        secrets,
+        secrets: [...secrets, ...maskValues],
         onLine: ({ stream, line }) => onEvent({ type: 'step:log', index, stream, line }),
       })
 

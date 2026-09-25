@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ListOrdered, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useBlocker, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { AddStep } from '@/components/add-step'
 import { ConfirmDialog } from '@/components/confirm-dialog'
@@ -11,13 +11,24 @@ import { RequirementsCard } from '@/components/requirements-card'
 import { RunButton } from '@/components/run-button'
 import { RunsTable } from '@/components/runs-table'
 import { StepList } from '@/components/step-list'
-import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import { usePageTitle } from '@/hooks/use-page-title'
 import { api } from '@/lib/api'
 import { timeAgo } from '@/lib/format'
 import { keys, useEnvironments, usePipeline, useProject, useRuns, useScripts } from '@/lib/queries'
@@ -36,6 +47,7 @@ const stepPayload = (steps) =>
 export function PipelinePage() {
   const id = Number(useParams().pipelineId)
   const pipeline = usePipeline(id)
+  usePageTitle(pipeline.data?.name)
 
   if (pipeline.error?.status === 404) return <NotFoundPage what="Pipeline" />
   if (pipeline.isPending) return <Skeleton className="h-10 w-64" />
@@ -53,7 +65,9 @@ function PipelineEditor({ pipeline }) {
   const [steps, setSteps] = useState(() => pipeline.steps.map(withUid))
   const dirty = JSON.stringify(stepPayload(steps)) !== JSON.stringify(stepPayload(pipeline.steps))
 
-  // Warn before leaving the page with unsaved step changes.
+  // Ask before leaving with unsaved step changes: in-app links via the router, tab closes via
+  // beforeunload.
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty && currentLocation.pathname !== nextLocation.pathname)
   useEffect(() => {
     if (!dirty) return
     const onBeforeUnload = (e) => e.preventDefault()
@@ -121,6 +135,21 @@ function PipelineEditor({ pipeline }) {
         }
       />
 
+      <AlertDialog open={blocker.state === 'blocked'} onOpenChange={(open) => !open && blocker.reset?.()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved step changes?</AlertDialogTitle>
+            <AlertDialogDescription>You changed this pipeline's steps without saving.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => blocker.reset?.()}>Keep editing</AlertDialogCancel>
+            <AlertDialogAction className={buttonVariants({ variant: 'destructive' })} onClick={() => blocker.proceed?.()}>
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="grid content-start gap-6 lg:col-span-2">
           <Card>
@@ -137,7 +166,7 @@ function PipelineEditor({ pipeline }) {
                 <StepList steps={steps} onChange={setSteps} knownScripts={scripts.data?.scripts} />
               )}
               <div className="flex flex-wrap items-center gap-2">
-                <AddStep scripts={scripts} onAdd={addStep} />
+                <AddStep scripts={scripts} existing={steps.map((s) => s.scriptPath)} onAdd={addStep} />
                 {dirty && (
                   <div className="ml-auto flex items-center gap-2">
                     <span className="text-muted-foreground text-sm">Unsaved changes</span>

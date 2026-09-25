@@ -4,11 +4,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
-// Picks a script from the repo's .BScript/ folder, or takes a typed path.
-export function AddStep({ scripts, onAdd }) {
+// Picks a script from the repo's .BScript/ folder, or takes a typed path. A pipeline runs each
+// script once, so scripts already in it are shown but can't be added again.
+export function AddStep({ scripts, existing = [], onAdd }) {
   const [open, setOpen] = useState(false)
   const [filter, setFilter] = useState('')
+  const used = new Set(existing)
   const matches = (scripts.data?.scripts ?? []).filter((s) => s.toLowerCase().includes(filter.toLowerCase()))
+  const firstFree = matches.find((s) => !used.has(s))
   const custom = filter.trim().replace(/^\.BScript\//, '')
 
   function add(scriptPath) {
@@ -31,10 +34,10 @@ export function AddStep({ scripts, onAdd }) {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && (matches[0] || custom)) {
-              e.preventDefault()
-              add(matches[0] ?? custom)
-            }
+            if (e.key !== 'Enter') return
+            e.preventDefault()
+            const pick = firstFree ?? (custom && !used.has(custom) ? custom : null)
+            if (pick) add(pick)
           }}
           className="mb-2 font-mono text-sm"
         />
@@ -60,13 +63,15 @@ export function AddStep({ scripts, onAdd }) {
               key={script}
               type="button"
               onClick={() => add(script)}
-              className="hover:bg-accent flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left font-mono text-sm"
+              disabled={used.has(script)}
+              className="hover:bg-accent flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left font-mono text-sm disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
             >
               <FileCode2 className="text-muted-foreground size-4 shrink-0" />
               <span className="truncate">{script}</span>
+              {used.has(script) && <span className="text-muted-foreground ml-auto font-sans text-xs">Added</span>}
             </button>
           ))}
-          {custom && !matches.includes(custom) && (
+          {custom && !matches.includes(custom) && !used.has(custom) && (
             <button
               type="button"
               onClick={() => add(custom)}

@@ -9,6 +9,7 @@ import { StatusBadge, StatusIcon } from '@/components/status'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useNow } from '@/hooks/use-now'
+import { usePageTitle } from '@/hooks/use-page-title'
 import { useRunStream } from '@/hooks/use-run-stream'
 import { api } from '@/lib/api'
 import { duration, FINISHED, runRefLabel, shortSha, timeAgo } from '@/lib/format'
@@ -21,6 +22,7 @@ const REPLAY_CAP = 5000 // matches the server's per-step replay buffer
 export function RunPage() {
   const runId = Number(useParams().runId)
   const query = useRun(runId)
+  usePageTitle(query.data ? `Run #${runId} ${query.data.status}` : `Run #${runId}`)
   const stream = useRunStream(runId, query.data?.status)
 
   if (query.error?.status === 404) return <NotFoundPage what="Run" />

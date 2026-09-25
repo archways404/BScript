@@ -6,15 +6,13 @@ import { PageHeader } from '@/components/page-header'
 import { RunsTable } from '@/components/runs-table'
 import { StatusIcon } from '@/components/status'
 import { Skeleton } from '@/components/ui/skeleton'
+import { usePageTitle } from '@/hooks/use-page-title'
 import { useProjects, useRuns } from '@/lib/queries'
 
 export function DashboardPage() {
+  usePageTitle('Dashboard')
   const projects = useProjects()
   const runs = useRuns({ limit: 10 })
-
-  // Latest run per project, from the recent-runs list.
-  const lastRun = new Map()
-  for (const run of runs.data ?? []) if (!lastRun.has(run.projectId)) lastRun.set(run.projectId, run)
 
   return (
     <>
@@ -38,7 +36,7 @@ export function DashboardPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {projects.data?.map((project) => {
-              const run = lastRun.get(project.id)
+              const run = project.lastRun
               return (
                 <Link
                   key={project.id}
@@ -48,7 +46,11 @@ export function DashboardPage() {
                   <div className="flex items-center gap-2">
                     <FolderGit2 className="text-muted-foreground group-hover:text-foreground size-4 transition-colors" />
                     <span className="truncate font-medium">{project.name}</span>
-                    {run && <StatusIcon status={run.status} className="ml-auto" />}
+                    {run ? (
+                      <StatusIcon status={run.status} className="ml-auto" />
+                    ) : (
+                      <span className="text-muted-foreground ml-auto text-xs">never run</span>
+                    )}
                   </div>
                   <p className="text-muted-foreground truncate font-mono text-xs">{project.repoUrl}</p>
                   <p className="text-muted-foreground flex items-center gap-1.5 text-xs">

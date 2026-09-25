@@ -26,6 +26,11 @@ test('manual run executes, records steps and serves logs; env merges with pipeli
   const log = await server.api('GET', `/api/runs/${run.id}/steps/0/log`)
   assert.equal(log.body, 'mode=pipeline token=*** trigger=manual branch=main\n')
 
+  const [listedProject] = (await server.api('GET', '/api/projects')).body
+  assert.deepEqual(listedProject.lastRun, { id: run.id, status: 'success', queuedAt: run.queuedAt })
+  const [listedPipeline] = (await server.api('GET', `/api/projects/${project.id}/pipelines`)).body
+  assert.equal(listedPipeline.lastRun.id, run.id)
+
   const listed = await server.api('GET', `/api/runs?pipelineId=${pipeline.id}`)
   assert.deepEqual(listed.body.map((r) => r.id), [run.id])
   assert.equal(listed.body[0].projectName, 'demo')

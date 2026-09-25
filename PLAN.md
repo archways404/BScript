@@ -149,5 +149,6 @@ Multi-stage build: `node:22-bookworm-slim` + pnpm → build web → prod deps fo
 7. ✅ **Triggers** — GitHub webhook (push/PR, branch filter), croner scheduler.
 8. ✅ **Docker** — Dockerfile, compose example, README.
 9. ✅ **Environments + env detection** — per-project environments with branch restrictions; `# @env` declarations, inferred requirements, checklist UI, pre-run check.
-10. **Later** — Docker executor, per-project cache dir, GitHub commit statuses, artifacts, notifications.
+10. ✅ **Registry** — bundled CNCF Distribution behind BScript auth at `/v2/`, tag metadata from notifications, retention policies with preview, scheduled cleanup + GC, external registry connections, per-run `DOCKER_CONFIG`.
+11. **Later** — Docker executor, per-project cache dir, GitHub commit statuses, artifacts, notifications.
 

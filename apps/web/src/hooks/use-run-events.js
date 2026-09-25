@@ -7,7 +7,11 @@ export function useRunEvents() {
   const queryClient = useQueryClient()
   useEffect(() => {
     const source = new EventSource('/api/events')
-    source.addEventListener('run', () => queryClient.invalidateQueries({ queryKey: ['runs'] }))
+    source.addEventListener('run', () => {
+      queryClient.invalidateQueries({ queryKey: ['runs'] })
+      // Project and pipeline lists show each one's latest run.
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+    })
     return () => source.close()
   }, [queryClient])
 }

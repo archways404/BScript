@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { Loader2, LogOut, TerminalSquare } from 'lucide-react'
+import { Container, LayoutDashboard, ListChecks, Loader2, LogOut, Settings, TerminalSquare } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
@@ -10,9 +10,10 @@ import { cn } from '@/lib/utils'
 import { LoginPage } from '@/pages/login'
 
 const NAV = [
-  { to: '/', label: 'Dashboard', end: true },
-  { to: '/runs', label: 'Runs' },
-  { to: '/settings', label: 'Settings' },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/runs', label: 'Runs', icon: ListChecks },
+  { to: '/registry', label: 'Registry', icon: Container },
+  { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
 export function Ambient() {
@@ -55,19 +56,21 @@ function SignedIn() {
             <span className="hidden sm:inline">BScript</span>
           </NavLink>
           <nav className="flex items-center gap-1">
-            {NAV.map(({ to, label, end }) => (
+            {NAV.map(({ to, label, icon: Icon, end }) => (
               <NavLink
                 key={to}
                 to={to}
                 end={end}
+                title={label}
                 className={({ isActive }) =>
                   cn(
-                    'rounded-md px-3 py-1.5 text-sm transition-colors',
+                    'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors sm:px-3',
                     isActive ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground',
                   )
                 }
               >
-                {label}
+                <Icon className="size-4 md:hidden" />
+                <span className="hidden md:inline">{label}</span>
               </NavLink>
             ))}
           </nav>

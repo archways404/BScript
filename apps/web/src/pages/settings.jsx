@@ -4,21 +4,25 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { CopyButton } from '@/components/copy-button'
+import { ExternalRegistriesCard } from '@/components/external-registries'
 import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { usePageTitle } from '@/hooks/use-page-title'
 import { api } from '@/lib/api'
 import { timeAgo } from '@/lib/format'
 import { keys, useTokens } from '@/lib/queries'
 
 export function SettingsPage() {
+  usePageTitle('Settings')
   return (
     <>
       <PageHeader title="Settings" />
       <div className="grid gap-6">
         <TokensCard />
+        <ExternalRegistriesCard />
         <PasswordCard />
       </div>
     </>

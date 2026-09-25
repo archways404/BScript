@@ -10,7 +10,7 @@ import { EnvEditor } from '@/components/env-editor'
 import { EnvironmentsTab } from '@/components/environments-tab'
 import { PageHeader } from '@/components/page-header'
 import { ProjectFields } from '@/components/project-form'
-import { RunsTable } from '@/components/runs-table'
+import { PagedRuns } from '@/components/paged-runs'
 import { StatusIcon } from '@/components/status'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,18 +27,22 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { usePageTitle } from '@/hooks/use-page-title'
 import { api } from '@/lib/api'
 import { timeAgo } from '@/lib/format'
-import { keys, usePipelines, useProject, useRuns, useWebhook } from '@/lib/queries'
+import { keys, usePipelines, useProject, useWebhook } from '@/lib/queries'
 import { NotFoundPage } from '@/pages/not-found'
 
 const TABS = ['pipelines', 'runs', 'variables', 'environments', 'settings']
+// Same names as the pipeline settings use.
+const TRIGGER_LABELS = { manual: 'Manual', push: 'Push', pull_request: 'Pull request', cron: 'Schedule' }
 
 export function ProjectPage() {
   const { projectId, tab = 'pipelines' } = useParams()
   const navigate = useNavigate()
   const id = Number(projectId)
   const project = useProject(id)
+  usePageTitle(project.data?.name)
 
   if (project.error?.status === 404) return <NotFoundPage what="Project" />
   if (project.isPending) return <Skeleton className="h-10 w-64" />
@@ -58,7 +62,7 @@ export function ProjectPage() {
         }
       />
       <Tabs value={TABS.includes(tab) ? tab : 'pipelines'} onValueChange={(t) => navigate(`/projects/${id}/${t}`)}>
-        <TabsList className="glass mb-6">
+        <TabsList className="glass mb-6 max-w-full justify-start overflow-x-auto">
           <TabsTrigger value="pipelines">Pipelines</TabsTrigger>
           <TabsTrigger value="runs">Runs</TabsTrigger>
           <TabsTrigger value="variables">Variables</TabsTrigger>
@@ -91,9 +95,6 @@ export function ProjectPage() {
 
 function PipelinesTab({ projectId }) {
   const pipelines = usePipelines(projectId)
-  const runs = useRuns({ projectId, limit: 50 })
-  const lastRun = new Map()
-  for (const run of runs.data ?? []) if (!lastRun.has(run.pipelineId)) lastRun.set(run.pipelineId, run)
 
   if (pipelines.isPending) return <Skeleton className="h-24 rounded-xl" />
   if (!pipelines.data.length) {
@@ -114,8 +115,8 @@ function PipelinesTab({ projectId }) {
       </div>
       <div className="glass divide-border divide-y overflow-hidden rounded-xl">
         {pipelines.data.map((pipeline) => {
-          const run = lastRun.get(pipeline.id)
-          const triggers = Object.entries(pipeline.triggers).filter(([, on]) => on).map(([name]) => name.replace('_', ' '))
+          const run = pipeline.lastRun
+          const triggers = Object.entries(pipeline.triggers).filter(([, on]) => on).map(([name]) => TRIGGER_LABELS[name] ?? name)
           return (
             <Link
               key={pipeline.id}
@@ -128,7 +129,7 @@ function PipelinesTab({ projectId }) {
                   {pipeline.name}
                   {!pipeline.enabled && <span className="text-muted-foreground text-xs font-normal">disabled</span>}
                 </div>
-                <div className="text-muted-foreground text-xs capitalize">{triggers.join(' · ') || 'no triggers'}</div>
+                <div className="text-muted-foreground text-xs">{triggers.join(' · ') || 'no triggers'}</div>
               </div>
               <span className="text-muted-foreground text-xs">{run ? timeAgo(run.queuedAt) : 'never run'}</span>
             </Link>
@@ -186,8 +187,7 @@ function NewPipelineDialog({ projectId }) {
 }
 
 function ProjectRuns({ projectId }) {
-  const runs = useRuns({ projectId, limit: 100 })
-  return <RunsTable runs={runs.data} isPending={runs.isPending} />
+  return <PagedRuns filters={{ projectId }} />
 }
 
 function SettingsTab({ project }) {

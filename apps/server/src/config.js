@@ -26,6 +26,10 @@ export function loadConfig(env = process.env) {
     runRetention: int(env, 'RUN_RETENTION', 50),
     // Fork PRs run untrusted code inside this container; opt in only if you accept that.
     allowForkPrs: env.BSCRIPT_ALLOW_FORK_PRS === 'true',
+    // The bundled registry (CNCF Distribution). The Docker image ships it at /usr/local/bin.
+    registryBin: env.BSCRIPT_REGISTRY_BIN || 'registry',
+    // host[:port] clients use for `docker login` / image names; defaults to the public URL's host.
+    registryAddress: env.BSCRIPT_REGISTRY_ADDRESS || new URL(env.BSCRIPT_PUBLIC_URL || `http://localhost:${int(env, 'PORT', 3000)}`).host,
     dataDir,
     dbPath: path.join(dataDir, 'bscript.db'),
     reposDir: path.join(dataDir, 'repos'),
