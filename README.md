@@ -1,21 +1,53 @@
 # BScript
 
-Self-hosted CI for bash. Put your scripts in a `.BScript/` folder in your repo. In the BScript UI, choose which scripts run, in what order, and with which env vars. BScript clones the repo and runs them.
+Self-hosted CI for bash. Put your scripts in a `.BScript/` folder in your repo. In the BScript UI, choose which scripts run, in what order, and with which env vars. BScript clones the repo and runs them: on a button press, on a GitHub push or pull request, on a schedule, or from an API call.
 
-See [PLAN.md](PLAN.md) for the design and milestones.
+It ships as one Docker image: web UI, API, runner and SQLite.
 
-## Status
-
-The runner, run queue, REST API and web UI work. GitHub webhook and cron triggers, and the Docker image, are next.
-
-On first start the server creates the admin from `BSCRIPT_ADMIN_USER` / `BSCRIPT_ADMIN_PASSWORD`. If no password is set, it generates one and prints it to the log once. After that, changing the env var does nothing. To set a new password (for example if you lost the generated one):
+## Run it
 
 ```sh
-pnpm bscript reset-password            # prompts for the new password
-pnpm bscript reset-password --user ops # also renames the admin
+cp .env.example .env
+# set BSCRIPT_SECRET_KEY (openssl rand -hex 32) and BSCRIPT_ADMIN_PASSWORD in .env
+docker compose up -d
 ```
 
-It works while the server is running and signs out every existing session.
+Open http://localhost:3000 and sign in as `admin`. Data lives in the `bscript-data` volume. Back it up: it holds the database, and without `BSCRIPT_SECRET_KEY` the stored secrets can't be decrypted.
+
+| Variable | Default | |
+|---|---|---|
+| `BSCRIPT_SECRET_KEY` | required in production | 32 bytes, hex or base64. Encrypts secrets and signs sessions. |
+| `BSCRIPT_ADMIN_USER` / `BSCRIPT_ADMIN_PASSWORD` | `admin` / generated | Used on first start only. |
+| `BSCRIPT_PUBLIC_URL` | `http://localhost:3000` | Used to show the webhook URL. |
+| `MAX_CONCURRENT_RUNS` | `2` | Runs of one pipeline never overlap, whatever this is set to. |
+| `RUN_RETENTION` | `50` | Finished runs kept per pipeline; older runs and their logs are deleted. |
+| `BSCRIPT_ALLOW_FORK_PRS` | `false` | See [Pull requests from forks](#pull-requests-from-forks). |
+| `TZ` | `UTC` | Time zone for cron schedules. |
+
+### Admin password
+
+On first start the server creates the admin from `BSCRIPT_ADMIN_USER` / `BSCRIPT_ADMIN_PASSWORD`. If no password is set, it generates one and prints it to the log once. After that, changing the env var does nothing. To set a new password:
+
+```sh
+pnpm bscript reset-password                                    # local checkout; prompts
+docker compose exec bscript node apps/server/src/cli.js reset-password --password '<new>'
+```
+
+It works while the server is running and signs out every session.
+
+## Set up a project
+
+1. **Add scripts.** Create `.BScript/` in your repo and commit some scripts. [examples/](examples) has ready-made folders for Node, Docker and SSH deploys, plus a guide to writing scripts: what they can rely on, env vars, secrets and helpers.
+2. **Create the project.** In the UI, use **New project** with the repo URL. Private repos need an access token (HTTPS) or a deploy key (SSH).
+3. **Create a pipeline.** Pick scripts from `.BScript/` and drag them into order. For each step you can set **Allow failure** and a timeout. Add env vars at project or pipeline level; mark tokens as **secret**.
+4. **Choose triggers** in the pipeline's settings:
+   - **Manual & API:** the Run button, or `POST /api/pipelines/:id/runs` with an API token from Settings (`Authorization: Bearer bst_…`).
+   - **Push / Pull request:** add the webhook shown under the project's **Settings** to GitHub (content type `application/json`, push and pull request events). The branch filter takes globs, such as `main, release/*, !release/old`. For pull requests it matches the target branch. `[skip ci]` in a commit message skips the run.
+   - **Schedule:** a cron expression, such as `0 3 * * *`.
+
+### Pull requests from forks
+
+Steps run inside the BScript container, as the same user as the server. A pull request from a fork can change `.BScript/`, so running it means running a stranger's code next to your database and secret key. Fork PRs are therefore ignored unless `BSCRIPT_ALLOW_FORK_PRS=true`, and even then they get no secret env vars. Pull requests from branches in the same repository run normally.
 
 ## Development
 
@@ -27,23 +59,19 @@ pnpm dev          # Fastify on :3000 + Vite on :5173 (proxies /api); open http:/
 pnpm test
 ```
 
-## Try the runner
+Local data goes to `apps/server/.data`. BScript's own [`.BScript/`](.BScript) installs, tests and builds this repo, so a BScript instance can build BScript.
+
+### Runner CLI
+
+Runs a repo's scripts without the server:
 
 ```sh
-# list scripts in a repo's .BScript/ folder
-pnpm bscript scripts --repo https://github.com/you/repo.git
-
-# run them in order (all discovered scripts, sorted, unless --step is given)
+pnpm bscript scripts --repo https://github.com/you/repo.git   # list steps in .BScript/
 pnpm bscript run --repo ../some-repo --ref main \
   --step build.sh --step test.sh --allow-fail lint.sh \
   --env-file .env.ci --secret API_TOKEN
 ```
 
-Private repos: `--token <PAT>` or `--ssh-key <file>`.
+With no `--step`, every script runs in sorted order. Private repos: `--token <PAT>` or `--ssh-key <file>`.
 
-### What a script gets
-
-- Working directory: the repo root, at the checked-out commit. Steps share it, so files written by one step are visible to the next.
-- Env: your vars plus `CI=true`, `BSCRIPT_RUN_ID`, `BSCRIPT_PROJECT`, `BSCRIPT_PIPELINE`, `BSCRIPT_TRIGGER`, `BSCRIPT_REF`, `BSCRIPT_BRANCH`, `BSCRIPT_COMMIT_SHA`, `BSCRIPT_WORKSPACE`, `BSCRIPT_STEP_NAME`, `BSCRIPT_STEP_INDEX`. The server's own env is not passed through.
-- Secret values (4+ characters) show as `***` in logs.
-- A step fails on a non-zero exit, on timeout, or if its script is missing. Anything the step leaves running in the background is killed when it exits.
+See [PLAN.md](PLAN.md) for the design and what's next.

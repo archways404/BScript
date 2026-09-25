@@ -57,12 +57,12 @@ Put code that steps `source` in a path starting with `_`, such as `.BScript/_lib
 
 ### Tools on the runner
 
-Steps run inside the BScript container. The stock image has `bash`, `git`, `node` (with `corepack` for pnpm/yarn), `curl`, `jq`, `ssh`, `tar` and `ca-certificates`. For anything else, build your own image on top of it:
+Steps run inside the BScript container. The stock image has `bash`, `git`, `node` (with `corepack` for pnpm/yarn), `python3`, `build-essential` (for native npm modules), `curl`, `jq`, `ssh`, `tar` and `ca-certificates`. For anything else, build your own image on top of it:
 
 ```dockerfile
 FROM bscript
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends python3 rsync \
+RUN apt-get update && apt-get install -y --no-install-recommends rsync \
  && rm -rf /var/lib/apt/lists/*
 USER bscript
 ```

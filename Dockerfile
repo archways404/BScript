@@ -24,9 +24,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 make g+
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --prod --filter server
 
 FROM node:${NODE_VERSION}-bookworm-slim
-# Tools available to pipeline scripts. Extend this image (FROM bscript) to add more.
+# Tools available to pipeline scripts. build-essential and python3 let projects with native
+# npm modules (node-gyp) install. Extend this image (FROM bscript) to add more.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      bash ca-certificates curl git jq openssh-client tar tini \
+      bash build-essential ca-certificates curl git jq openssh-client python3 tar tini \
  && rm -rf /var/lib/apt/lists/* \
  && corepack enable \
  && useradd --create-home --uid 10001 --shell /bin/bash bscript \
